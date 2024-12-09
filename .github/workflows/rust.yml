@@ -1,0 +1,35 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - master
+  pull_request: null
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: sksat/action-clippy@v1.0.0
+        if: github.event_name == 'push'
+        with:
+          reporter: github-check
+
+      - uses: sksat/action-clippy@v1.0.0
+        if: github.event_name == 'pull_request'
+        with:
+          reporter: github-pr-review
+
+      - name: format check
+        run: cargo fmt --all -- --check
+
+      - name: unit test
+        run: cargo test
+
