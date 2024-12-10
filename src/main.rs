@@ -19,6 +19,10 @@ struct Args {
     #[arg(long)]
     loglv: Option<String>,
 
+    /// Extension name.
+    #[arg(long)]
+    ext_name: String,
+
     /// Json file path contains target sail files.
     input: PathBuf,
 
@@ -32,6 +36,25 @@ fn main() -> Result<()> {
     // parse command line arguments
     let args = Args::parse();
 
+    // Check that the output file name matches the extension name.
+    assert!(
+        args.output
+            .file_stem()
+            .unwrap()
+            .eq_ignore_ascii_case(args.ext_name.as_str()),
+        "Extension name does not matches the file name"
+    );
+
+    // Check that the first character of the extension name is capitalized
+    assert!(
+        args.ext_name
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false),
+        "The First character of the extension name is not capitalized"
+    );
+
     // set up the logger, defaulting to no output if the CLI flag was not supplied
     init_logger(args.loglv.as_deref().unwrap_or("info"))?;
 
@@ -43,7 +66,7 @@ fn main() -> Result<()> {
     ast_util::instruction::show_encoding_rule("riscv_insts_zbb.sail");
     ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
 
-    generate_module::create_hikami_module(args.output).unwrap();
+    generate_module::create_hikami_module(args.ext_name, args.output).unwrap();
 
     info!("done");
 
