@@ -1,4 +1,5 @@
 mod ast_util;
+mod generate_module;
 mod jib_util;
 
 use std::path::PathBuf;
@@ -20,6 +21,9 @@ struct Args {
 
     /// Json file path contains target sail files.
     input: PathBuf,
+
+    /// Output path
+    output: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -38,6 +42,8 @@ fn main() -> Result<()> {
 
     ast_util::instruction::show_encoding_rule("riscv_insts_zbb.sail");
     ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
+
+    generate_module::create_hikami_module(args.output).unwrap();
 
     info!("done");
 
