@@ -15,3 +15,4 @@ color-eyre = { version = "0.6.3", default-features = false }
 deepsize = "0.2.0"
 log = "0.4.22"
 regex = "1.11.1"
+indoc = "2.0.5"
