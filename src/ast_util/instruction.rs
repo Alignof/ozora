@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::path::Path;
 
 use sailrs::sail_ast::{
@@ -21,6 +22,39 @@ pub struct InstType {
     _insts: Option<ListVec<Identifier>>,
     /// Index of the instruction.
     index: Option<usize>,
+}
+
+/// Operand data
+pub struct NamedOperand {
+    /// Field name
+    name: String,
+    /// Bit map of the field.
+    range: Range<u8>,
+}
+
+/// Immediate data
+pub struct Immediate {
+    /// Immediate value
+    value: u32,
+    /// Bit map of the field.
+    range: Range<u8>,
+}
+
+pub enum Operand {
+    Imm(Immediate),
+    Named(NamedOperand),
+}
+
+/// Instruction data
+pub struct Instruction {
+    /// Instruction name.
+    name: String,
+
+    /// Group name (Name of `InstType`)
+    group_name: Option<String>,
+
+    /// List of operands.
+    operands: Vec<Operand>,
 }
 
 impl InstType {
