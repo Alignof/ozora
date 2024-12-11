@@ -82,7 +82,7 @@ pub enum Operand {
 #[derive(Debug)]
 pub struct Instruction {
     /// Instruction name.
-    name: String,
+    pub name: String,
 
     /// Group name (Name of `InstType`)
     group_name: Option<String>,

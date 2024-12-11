@@ -4,16 +4,67 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+use crate::ast_util::instruction::Instruction;
+
+/// Generate the `EmulateExtension::instruction`.
+fn generate_inst_handler(
+    file: &mut File,
+    ext_name: &str,
+    insns: &Vec<Instruction>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    indoc::writedoc!(
+        file,
+        r#"
+        impl EmulateExtension for {ext_name} {{
+            /// Emulate {ext_name} instruction.
+            #[allow(clippy::cast_possible_truncation)]
+            fn instruction(&mut self, inst: &Instruction) {{
+                let mut context = unsafe {{ HYPERVISOR_DATA.lock() }}
+                    .get()
+                    .unwrap()
+                    .guest()
+                    .context;
+
+                match inst.opc {{
+        "#,
+    )?;
+
+    // generate instruction pattern from insns data.
+    for insn in insns {
+        indoc::writedoc!(
+            file,
+            "
+            \t\t\tOpcodeKind::{ext_name}({ext_name}Opcode::{}) => todo!(),
+            ",
+            insn.name.strip_prefix("RISCV_").unwrap_or(&insn.name)
+        )?;
+    }
+
+    indoc::writedoc!(
+        file,
+        "
+                \t_ => unreachable!(),
+            \t}}
+        \t}}
+
+        ",
+    )?;
+
+    Ok(())
+}
+
 /// Genarate hypervisor module.
 pub fn create_hikami_module(
     ext_name: String,
     output_path: PathBuf,
+    insns: Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create(output_path)?;
     writeln!(file, "//! Emulation {ext_name}")?;
     indoc::writedoc!(
         file,
         "
+
         use super::{{pseudo_vs_exception, EmulateExtension, EmulatedCsr}};
         use crate::HYPERVISOR_DATA;
 
@@ -53,24 +104,12 @@ pub fn create_hikami_module(
     )?;
 
     // generate implementation of ExtensionEmulation trait.
+    generate_inst_handler(&mut file, &ext_name, &insns)?;
+
+    // generate implementation of ExtensionEmulation trait.
     indoc::writedoc!(
         file,
         r#"
-        impl EmulateExtension for {ext_name} {{
-            /// Emulate {ext_name} instruction.
-            #[allow(clippy::cast_possible_truncation)]
-            fn instruction(&mut self, inst: &Instruction) {{
-                let mut context = unsafe {{ HYPERVISOR_DATA.lock() }}
-                    .get()
-                    .unwrap()
-                    .guest()
-                    .context;
-
-                match inst.opc {{
-                    _ => todo!("Implementing {ext_name} instruction emulation"),
-                }}
-            }}
-
             /// Emulate Zicfiss CSRs access.
             fn csr(&mut self, inst: &Instruction) {{
                 todo!("Implementing {ext_name} CSR emulation");
