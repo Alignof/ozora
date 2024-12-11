@@ -1,3 +1,4 @@
+use log::info;
 use std::ops::Range;
 use std::path::Path;
 
@@ -22,39 +23,6 @@ pub struct InstType {
     _insts: Option<ListVec<Identifier>>,
     /// Index of the instruction.
     index: Option<usize>,
-}
-
-/// Operand data
-pub struct NamedOperand {
-    /// Field name
-    name: String,
-    /// Bit map of the field.
-    range: Range<u8>,
-}
-
-/// Immediate data
-pub struct Immediate {
-    /// Immediate value
-    value: u32,
-    /// Bit map of the field.
-    range: Range<u8>,
-}
-
-pub enum Operand {
-    Imm(Immediate),
-    Named(NamedOperand),
-}
-
-/// Instruction data
-pub struct Instruction {
-    /// Instruction name.
-    name: String,
-
-    /// Group name (Name of `InstType`)
-    group_name: Option<String>,
-
-    /// List of operands.
-    operands: Vec<Operand>,
 }
 
 impl InstType {
@@ -83,6 +51,46 @@ impl InstType {
     }
 }
 
+/// Operand data
+#[derive(Debug)]
+pub struct NamedOperand {
+    /// Field name
+    name: String,
+    /// Bit map of the field.
+    range: Range<u8>,
+}
+
+/// Immediate data
+#[derive(Debug)]
+pub struct Immediate {
+    /// Immediate value
+    value: u32,
+    /// Bit map of the field.
+    range: Range<u8>,
+}
+
+/// Bit field kind.
+#[derive(Debug)]
+pub enum Operand {
+    /// Immediate value
+    Imm(Immediate),
+    /// Named field. (e.g. `rd`, `rs1`)
+    Named(NamedOperand),
+}
+
+/// Instruction data
+#[derive(Debug)]
+pub struct Instruction {
+    /// Instruction name.
+    name: String,
+
+    /// Group name (Name of `InstType`)
+    group_name: Option<String>,
+
+    /// List of operands.
+    operands: Vec<Operand>,
+}
+
 /// Get ast node that is contained in target file.
 #[allow(dead_code)]
 pub fn get_insns_in_target_file(target_file_name: &str) -> Vec<InstType> {
@@ -105,18 +113,24 @@ pub fn get_insns_in_target_file(target_file_name: &str) -> Vec<InstType> {
 }
 
 /// Show lhs of the encode data.
-pub fn show_encoding_rule_lhs(ident: &Identifier, inst: &InstType, pat_list: &ListVec<Pattern>) {
+pub fn get_encoding_rule_lhs(
+    ident: &Identifier,
+    inst: &InstType,
+    pat_list: &ListVec<Pattern>,
+) -> String {
     match inst.index {
         Some(index) => {
             if let PatternAux::Tuple(union_args) = *pat_list.iter().next().unwrap().inner.clone() {
                 if let PatternAux::Identifier(union_ident) =
                     *union_args.iter().nth(index).unwrap().inner.clone()
                 {
-                    print!("{:}: ", unwrap_ident(&union_ident));
+                    return unwrap_ident(&union_ident).to_string();
                 }
             }
+
+            panic!("couldn't get a instruction name");
         }
-        None => print!("{:}: ", unwrap_ident(ident)),
+        None => unwrap_ident(ident).to_string(),
     }
 }
 
@@ -139,10 +153,13 @@ fn fold_bitvector_concat_tree(bitvec_concat: Expression) -> Vec<ExpressionAux> {
     }
 }
 
-/// Show rhs of the encode data.
-pub fn show_encoding_rule_rhs(pat_rhs: Expression) {
+/// Get rhs of the encode data.
+pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
+    let mut op_list = Vec::new();
+    let mut offset = 0;
     let exp_list = fold_bitvector_concat_tree(pat_rhs);
-    for exp_aux in exp_list {
+
+    for exp_aux in exp_list.iter().rev() {
         match exp_aux {
             ExpressionAux::Vector(list_exp) => {
                 let bit_width = list_exp.len();
@@ -158,16 +175,21 @@ pub fn show_encoding_rule_rhs(pat_rhs: Expression) {
                     }
                 });
 
-                print!("{bit_vec:0>bit_width$b} ");
+                op_list.push(Operand::Imm(Immediate {
+                    value: bit_vec,
+                    range: u8::try_from(bit_width).unwrap() - 1 + offset..offset,
+                }));
+
+                offset += bit_width as u8;
             }
             ExpressionAux::Cast(typ, ident) => {
                 // ident name
-                let ExpressionAux::Identifier(cast_ident) = *ident.inner else {
+                let ExpressionAux::Identifier(ref cast_ident) = *ident.inner else {
                     panic!("unexpected ExpressionAux: {:#?}", *ident.inner);
                 };
 
                 // bit width
-                let TypAux::Application(_ident, exp_list) = *typ.inner else {
+                let TypAux::Application(ref _ident, ref exp_list) = *typ.inner else {
                     panic!("unexpected TypAux: {:#?}", *typ.inner);
                 };
                 let typ_arg = exp_list.iter().next().unwrap();
@@ -178,18 +200,26 @@ pub fn show_encoding_rule_rhs(pat_rhs: Expression) {
                     panic!("unexpected NumericExpressionAux: {:#?}", *num_exp.inner);
                 };
 
-                print!("{}({} bit) ", unwrap_ident(&cast_ident), bit_width.0);
+                op_list.push(Operand::Named(NamedOperand {
+                    name: unwrap_ident(&cast_ident).to_string(),
+                    range: u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset..offset,
+                }));
+
+                offset += u8::try_from(bit_width.0).unwrap();
             }
             _ => unreachable!(),
         }
     }
-    println!();
+
+    op_list
 }
 
 /// Get encode data of provided instructions.
-pub fn show_encoding_rule(target_file_name: &str) {
+pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
     let encdec_node = AST.get().unwrap().get_encdec_forward_node().unwrap();
-    let inst_list = get_insns_in_target_file(target_file_name);
+    let mut inst_list = Vec::new();
+    let inst_type_list = get_insns_in_target_file(target_file_name);
+
     if let PatternMatchAux::Expression(_pat, exp) = encdec_node.inner.pattern_match.inner {
         if let ExpressionAux::Match(_exp, pat_list) = *exp.inner {
             for pat in pat_list {
@@ -198,16 +228,24 @@ pub fn show_encoding_rule(target_file_name: &str) {
                 // pat_rhs: 0b000010 @ shamt @ rs1 @ 0b001 @ rd @ 0b0011011
                 if let PatternMatchAux::When(pat_lhs, _exp0, pat_rhs) = pat.inner {
                     if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
-                        if let Some(inst) = inst_list
+                        if let Some(inst) = inst_type_list
                             .iter()
                             .find(|x| x.name == unwrap_ident(&ident).as_ref())
                         {
-                            show_encoding_rule_lhs(&ident, inst, &pat_list);
-                            show_encoding_rule_rhs(pat_rhs.clone());
+                            inst_list.push(Instruction {
+                                name: get_encoding_rule_lhs(&ident, inst, &pat_list),
+                                group_name: match inst.index {
+                                    Some(_) => Some(inst.name.clone()),
+                                    None => None,
+                                },
+                                operands: get_encoding_rule_rhs(pat_rhs.clone()),
+                            });
                         }
                     }
                 }
             }
         }
     }
+
+    inst_list
 }

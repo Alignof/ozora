@@ -63,8 +63,10 @@ fn main() -> Result<()> {
     AST.set(Ast::new(parse_sail_files(args.input).unwrap()))
         .unwrap();
 
-    ast_util::instruction::show_encoding_rule("riscv_insts_zbb.sail");
+    let insns = ast_util::instruction::get_encoding_rule("riscv_insts_zbb.sail");
     ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
+
+    println!("{insns:#?}");
 
     generate_module::create_hikami_module(args.ext_name, args.output).unwrap();
 
