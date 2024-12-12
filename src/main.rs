@@ -1,4 +1,5 @@
 mod ast_util;
+mod generate_decoder;
 mod generate_module;
 mod jib_util;
 
@@ -66,7 +67,9 @@ fn main() -> Result<()> {
     let insns = ast_util::instruction::get_encoding_rule("riscv_insts_zbb.sail");
     ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
 
-    generate_module::create_hikami_module(args.ext_name, args.output, insns).unwrap();
+    generate_module::create_hikami_module(&args.ext_name, &args.output, &insns).unwrap();
+
+    generate_decoder::create_raki_insn_def(&args.ext_name, &args.output, &insns).unwrap();
 
     info!("done");
 

@@ -55,9 +55,9 @@ fn generate_inst_handler(
 
 /// Genarate hypervisor module.
 pub fn create_hikami_module(
-    ext_name: String,
-    output_path: PathBuf,
-    insns: Vec<Instruction>,
+    ext_name: &str,
+    output_path: &PathBuf,
+    insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create(output_path)?;
     writeln!(file, "//! Emulation {ext_name}")?;
