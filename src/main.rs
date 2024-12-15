@@ -69,7 +69,12 @@ fn main() -> Result<()> {
 
     generate_module::create_hikami_module(&args.ext_name, &args.output, &insns).unwrap();
 
-    generate_decoder::create_raki_insn_def(&args.ext_name, &args.output, &insns).unwrap();
+    generate_decoder::instruction_definition::create_raki_insn_def(
+        &args.ext_name,
+        &args.output,
+        &insns,
+    )
+    .unwrap();
 
     info!("done");
 
