@@ -64,9 +64,9 @@ pub struct NamedOperand {
 #[derive(Debug)]
 pub struct Immediate {
     /// Immediate value
-    value: u32,
+    pub value: u32,
     /// Bit map of the field.
-    range: Range<u8>,
+    pub range: Range<u8>,
 }
 
 /// Bit field kind.
@@ -92,6 +92,7 @@ pub struct Instruction {
 }
 
 impl Instruction {
+    /// Get a field by name
     pub fn get_field_by_name(&self, field_name: &str) -> Option<&NamedOperand> {
         self.operands.iter().find_map(|x| match x {
             Operand::Named(n) => {
@@ -103,6 +104,17 @@ impl Instruction {
             }
             Operand::Imm(_) => None,
         })
+    }
+
+    /// Get all immediate fields
+    pub fn get_imm_fields(&self) -> Vec<&Immediate> {
+        self.operands
+            .iter()
+            .filter_map(|x| match x {
+                Operand::Imm(imm) => Some(imm),
+                Operand::Named(_) => None,
+            })
+            .collect()
     }
 }
 
