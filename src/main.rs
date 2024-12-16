@@ -76,6 +76,9 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
+    generate_decoder::parse_operand::create_raki_decoder(&args.ext_name, &args.output, &insns)
+        .unwrap();
+
     info!("done");
 
     Ok(())

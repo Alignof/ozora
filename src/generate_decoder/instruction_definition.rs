@@ -12,10 +12,9 @@ pub fn create_raki_insn_def(
     output_path: &PathBuf,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let _ = std::fs::create_dir(output_path.with_file_name("instruction"));
-    let mut file = File::create(dbg!(
-        output_path.with_file_name(format!("instruction/{ext_name}.rs"))
-    ))?;
+    let dir_name = "instruction";
+    let _ = std::fs::create_dir(output_path.with_file_name(dir_name));
+    let mut file = File::create(output_path.with_file_name(format!("{dir_name}/{ext_name}.rs")))?;
 
     // Doc comment and import statements.
     indoc::writedoc!(
@@ -118,4 +117,3 @@ pub fn create_raki_insn_def(
 
     Ok(())
 }
-
