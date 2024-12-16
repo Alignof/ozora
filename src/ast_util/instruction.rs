@@ -116,6 +116,20 @@ impl Instruction {
             })
             .collect()
     }
+
+    /// Get immediate value by range
+    pub fn get_imm_value_by_range(&self, range: &Range<u8>) -> Option<u32> {
+        self.operands.iter().find_map(|x| match x {
+            Operand::Imm(imm) => {
+                if imm.range == *range {
+                    Some(imm.value)
+                } else {
+                    None
+                }
+            }
+            Operand::Named(_) => None,
+        })
+    }
 }
 
 /// Get ast node that is contained in target file.
