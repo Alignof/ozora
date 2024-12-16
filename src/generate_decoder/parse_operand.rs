@@ -69,7 +69,23 @@ pub fn generically_generate_parsing_reg_func(
     Ok(())
 }
 
-/// Genarate operand parser.
+/// Group instructions by an imm field value.
+fn group_by_imm_value<'a>(
+    insns: &Vec<Instruction>,
+    imm_range: &Range<u8>,
+) -> Vec<Vec<Instruction>> {
+    let mut insns_map = HashMap::new();
+    for insn in insns {
+        let key = insn.get_imm_value_by_range(imm_range);
+        insns_map
+            .entry(key)
+            .or_insert_with(Vec::new)
+            .push(insn.clone());
+    }
+
+    insns_map.into_values().collect()
+}
+
 pub fn create_raki_decoder(
     ext_name: &str,
     output_path: &PathBuf,
