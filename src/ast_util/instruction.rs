@@ -192,7 +192,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
 
                 op_list.push(Operand::Imm(Immediate {
                     value: bit_vec,
-                    range: u8::try_from(bit_width).unwrap() - 1 + offset..offset,
+                    range: offset..u8::try_from(bit_width).unwrap() - 1 + offset,
                 }));
 
                 offset += bit_width as u8;
@@ -217,7 +217,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
 
                 op_list.push(Operand::Named(NamedOperand {
                     name: unwrap_ident(&cast_ident).to_string(),
-                    range: u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset..offset,
+                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
                 }));
 
                 offset += u8::try_from(bit_width.0).unwrap();

@@ -32,7 +32,7 @@ pub fn generically_generate_parsing_reg_func(
         indoc::writedoc!(
             file,
             "
-            \tlet {reg_type}_{start}_{end}: usize = inst.slice({start}, {end}) as usize;
+            \tlet {reg_type}_{end}_{start}: usize = inst.slice({end}, {start}) as usize;
             ",
             start = reg_field_range.start,
             end = reg_field_range.end,
@@ -49,7 +49,7 @@ pub fn generically_generate_parsing_reg_func(
                 .to_uppercase(),
             match insn.get_field_by_name(reg_type) {
                 Some(reg_field) => format!(
-                    "Some({reg_type}_{start}_{end}),",
+                    "Some({reg_type}_{end}_{start}),",
                     start = reg_field.range.start,
                     end = reg_field.range.end,
                 ),
