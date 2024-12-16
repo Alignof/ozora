@@ -1,10 +1,73 @@
 //! Generate a parsing operand module.
 
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
 use crate::ast_util::instruction::Instruction;
+
+/// Generate a parsing `rd`, `rs1`, `rs2`, `imm` function.
+pub fn generically_generate_parsing_reg_func(
+    file: &mut File,
+    reg_type: &str,
+    ext_name: &str,
+    insns: &Vec<Instruction>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    indoc::writedoc!(
+        file,
+        "
+        /// Parsing {ext_name} instruction's {reg_type}
+        pub fn parse_{reg_type}(inst: u32, opkind: &{ext_name}Opcode) -> Option<usize> {{
+        "
+    )?;
+
+    let mut reg_field_set = HashSet::new();
+    for insn in insns {
+        if let Some(field) = insn.get_field_by_name(reg_type) {
+            reg_field_set.insert(field.range.clone());
+        }
+    }
+    for reg_field_range in reg_field_set.iter() {
+        indoc::writedoc!(
+            file,
+            "
+            \tlet {reg_type}_{start}_{end}: usize = inst.slice({start}, {end}) as usize;
+            ",
+            start = reg_field_range.start,
+            end = reg_field_range.end,
+        )?;
+    }
+    writeln!(file, "\tmatch opkind {{")?;
+    for insn in insns {
+        indoc::writedoc!(
+            file,
+            "\t\t{ext_name}Opcode::{} => {}\n",
+            insn.name
+                .strip_prefix("RISCV_")
+                .unwrap_or(&insn.name)
+                .to_uppercase(),
+            match insn.get_field_by_name(reg_type) {
+                Some(reg_field) => format!(
+                    "Some({reg_type}_{start}_{end}),",
+                    start = reg_field.range.start,
+                    end = reg_field.range.end,
+                ),
+                None => "None,".to_string(),
+            }
+        )?;
+    }
+    indoc::writedoc!(
+        file,
+        "
+            }}
+        }}
+
+        "
+    )?;
+
+    Ok(())
+}
 
 /// Genarate operand parser.
 pub fn create_raki_decoder(
@@ -39,58 +102,10 @@ pub fn create_raki_decoder(
         "
     )?;
 
-    // `parse_rd`
-    indoc::writedoc!(
-        file,
-        "
-        pub fn parse_rd(inst: u32, opkind: &ZicfissOpcode) -> Option<usize> {{
-        "
-    )?;
-    indoc::writedoc!(
-        file,
-        "
-        let rd: usize = inst.slice(11, 7) as usize;
-        "
-    )?;
-    indoc::writedoc!(
-        file,
-        "
-        }}
-
-        "
-    )?;
-
-    // `parse_rs1`
-    indoc::writedoc!(
-        file,
-        "
-        pub fn parse_rs1(inst: u32, opkind: &ZicfissOpcode) -> Option<usize> {{
-            let rs1: usize = inst.slice(19, 15) as usize;
-        }}
-
-        "
-    )?;
-
-    // `parse_rs2`
-    indoc::writedoc!(
-        file,
-        "
-        pub fn parse_rs2(inst: u32, opkind: &ZicfissOpcode) -> Option<usize> {{
-            let rs2: usize = inst.slice(24, 20) as usize;
-        }}
-
-        "
-    )?;
-
-    // `parse_imm`
-    indoc::writedoc!(
-        file,
-        "
-        pub fn parse_imm(inst: u32, opkind: &ZicfissOpcode) -> Option<i32> {{
-        }}
-
-        "
-    )?;
+    generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "imm", ext_name, insns)?;
 
     Ok(())
 }

@@ -52,12 +52,12 @@ impl InstType {
 }
 
 /// Operand data
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct NamedOperand {
     /// Field name
     name: String,
     /// Bit map of the field.
-    range: Range<u8>,
+    pub range: Range<u8>,
 }
 
 /// Immediate data
@@ -89,6 +89,21 @@ pub struct Instruction {
 
     /// List of operands.
     operands: Vec<Operand>,
+}
+
+impl Instruction {
+    pub fn get_field_by_name(&self, field_name: &str) -> Option<&NamedOperand> {
+        self.operands.iter().find_map(|x| match x {
+            Operand::Named(n) => {
+                if n.name == field_name {
+                    Some(n)
+                } else {
+                    None
+                }
+            }
+            Operand::Imm(_) => None,
+        })
+    }
 }
 
 /// Get ast node that is contained in target file.
