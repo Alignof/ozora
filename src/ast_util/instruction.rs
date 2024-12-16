@@ -52,7 +52,7 @@ impl InstType {
 }
 
 /// Operand data
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct NamedOperand {
     /// Field name
     name: String,
@@ -61,7 +61,7 @@ pub struct NamedOperand {
 }
 
 /// Immediate data
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Immediate {
     /// Immediate value
     pub value: u32,
@@ -70,7 +70,7 @@ pub struct Immediate {
 }
 
 /// Bit field kind.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operand {
     /// Immediate value
     Imm(Immediate),
@@ -79,7 +79,7 @@ pub enum Operand {
 }
 
 /// Instruction data
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     /// Instruction name.
     pub name: String,

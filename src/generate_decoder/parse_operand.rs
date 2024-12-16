@@ -1,14 +1,15 @@
 //! Generate a parsing operand module.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
+use std::ops::Range;
 use std::path::PathBuf;
 
 use crate::ast_util::instruction::Instruction;
 
 /// Generate a parsing `rd`, `rs1`, `rs2`, `imm` function.
-pub fn generically_generate_parsing_reg_func(
+fn generically_generate_parsing_reg_func(
     file: &mut File,
     reg_type: &str,
     ext_name: &str,
@@ -84,6 +85,89 @@ fn group_by_imm_value<'a>(
     }
 
     insns_map.into_values().collect()
+}
+
+/// Generate each field pattern by calling recursively.
+fn generate_each_field_pattern(
+    file: &mut File,
+    ext_name: &str,
+    insns: &Vec<Instruction>,
+    imm_field_list: &[Range<u8>],
+    imm_index: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let imm_field_range = &imm_field_list[imm_index];
+    let mut grouped_insns = group_by_imm_value(insns, imm_field_range);
+
+    // skip this level
+    if grouped_insns.len() == 1 {
+        generate_each_field_pattern(file, ext_name, &insns, imm_field_list, imm_index + 1)?;
+        return Ok(());
+    }
+
+    writeln!(
+        file,
+        "match op_{end}_{start} {{",
+        end = imm_field_range.end,
+        start = imm_field_range.start
+    )?;
+
+    grouped_insns.sort_by(|a, b| a.len().cmp(&b.len()));
+    let mut is_wild_card_needed = true;
+    for insns in grouped_insns {
+        // leaf
+        if insns.len() == 1 {
+            let insn = &insns[0];
+            let insn_name_upper = insn
+                .name
+                .strip_prefix("RISCV_")
+                .unwrap_or(&insn.name)
+                .to_uppercase();
+
+            if let Some(imm_val) = dbg!(insn).get_imm_value_by_range(dbg!(imm_field_range)) {
+                indoc::writedoc!(
+                    file,
+                    "\t\t{imm_val:#0width$b} => {ext_name}Opcode::{},\n",
+                    insn_name_upper,
+                    width = imm_field_range.len(),
+                )?;
+            } else {
+                indoc::writedoc!(file, "\t\t_ => {ext_name}Opcode::{},\n", insn_name_upper)?;
+                is_wild_card_needed = false;
+            }
+        // non leaf
+        } else {
+            match insns[0].get_imm_value_by_range(imm_field_range) {
+                Some(imm_val) => write!(
+                    file,
+                    "\t\t{imm_val:#0width$b} => ",
+                    width = imm_field_range.len()
+                )?,
+                None => {
+                    write!(file, "\t\t_ => ")?;
+                    is_wild_card_needed = false;
+                }
+            }
+            generate_each_field_pattern(file, ext_name, &insns, imm_field_list, imm_index + 1)?;
+        }
+    }
+
+    if is_wild_card_needed {
+        writeln!(file, "_ => Err(DecodingError::InvalidOpcode),")?;
+    }
+    writeln!(file, "}}")?;
+
+    Ok(())
+}
+
+    indoc::writedoc!(
+        file,
+        "
+        }}
+
+        "
+    )?;
+
+    Ok(())
 }
 
 pub fn create_raki_decoder(
