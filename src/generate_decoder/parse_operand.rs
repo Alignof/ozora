@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::ast_util::instruction::Instruction;
 
@@ -71,10 +71,7 @@ fn generically_generate_parsing_reg_func(
 }
 
 /// Group instructions by an imm field value.
-fn group_by_imm_value<'a>(
-    insns: &Vec<Instruction>,
-    imm_range: &Range<u8>,
-) -> Vec<Vec<Instruction>> {
+fn group_by_imm_value(insns: &Vec<Instruction>, imm_range: &Range<u8>) -> Vec<Vec<Instruction>> {
     let mut insns_map = HashMap::new();
     for insn in insns {
         let key = insn.get_imm_value_by_range(imm_range);
@@ -172,10 +169,10 @@ fn generate_parsing_opecode_func(
     }
     let mut imm_field_list: Vec<Range<u8>> = imm_field_set.into_iter().collect();
     imm_field_list.sort_by(|a, b| {
-        if a.start != b.start {
-            a.start.cmp(&b.start)
-        } else {
+        if a.start == b.start {
             b.end.cmp(&a.end)
+        } else {
+            a.start.cmp(&b.start)
         }
     });
     indoc::writedoc!(
@@ -208,7 +205,7 @@ fn generate_parsing_opecode_func(
 /// Generate operand parser.
 pub fn create_raki_decoder(
     ext_name: &str,
-    output_path: &PathBuf,
+    output_path: &Path,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dir_name = "decode";

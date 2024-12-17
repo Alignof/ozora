@@ -84,7 +84,7 @@ pub struct Instruction {
     pub name: String,
 
     /// Group name (Name of `InstType`)
-    group_name: Option<String>,
+    _group_name: Option<String>,
 
     /// List of operands.
     operands: Vec<Operand>,
@@ -194,6 +194,7 @@ fn fold_bitvector_concat_tree(bitvec_concat: Expression) -> Vec<ExpressionAux> {
 }
 
 /// Get rhs of the encode data.
+#[allow(clippy::cast_possible_truncation)]
 pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
     let mut op_list = Vec::new();
     let mut offset = 0;
@@ -274,7 +275,7 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                         {
                             inst_list.push(Instruction {
                                 name: get_encoding_rule_lhs(&ident, inst, &pat_list),
-                                group_name: inst.index.map(|_| inst.name.clone()),
+                                _group_name: inst.index.map(|_| inst.name.clone()),
                                 operands: get_encoding_rule_rhs(pat_rhs.clone()),
                             });
                         }

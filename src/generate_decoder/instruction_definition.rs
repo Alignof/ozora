@@ -2,14 +2,14 @@
 
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::ast_util::instruction::Instruction;
 
 /// Genarate decoder implementation.
 pub fn create_raki_insn_def(
     ext_name: &str,
-    output_path: &PathBuf,
+    output_path: &Path,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dir_name = "instruction";
