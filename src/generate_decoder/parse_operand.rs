@@ -70,11 +70,11 @@ fn generically_generate_parsing_reg_func(
     Ok(())
 }
 
-/// Group instructions by an imm field value.
-fn group_by_imm_value(insns: &Vec<Instruction>, imm_range: &Range<u8>) -> Vec<Vec<Instruction>> {
+/// Group instructions by an opc field value.
+fn group_by_opc_value(insns: &Vec<Instruction>, opc_range: &Range<u8>) -> Vec<Vec<Instruction>> {
     let mut insns_map = HashMap::new();
     for insn in insns {
-        let key = insn.get_imm_value_by_range(imm_range);
+        let key = insn.get_opc_value_by_range(opc_range);
         insns_map
             .entry(key)
             .or_insert_with(Vec::new)
@@ -89,23 +89,23 @@ fn generate_each_field_pattern(
     file: &mut File,
     ext_name: &str,
     insns: &Vec<Instruction>,
-    imm_field_list: &[Range<u8>],
-    imm_index: usize,
+    opc_field_list: &[Range<u8>],
+    opc_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let imm_field_range = &imm_field_list[imm_index];
-    let mut grouped_insns = group_by_imm_value(insns, imm_field_range);
+    let opc_field_range = &opc_field_list[opc_index];
+    let mut grouped_insns = group_by_opc_value(insns, opc_field_range);
 
     // skip this level
     if grouped_insns.len() == 1 {
-        generate_each_field_pattern(file, ext_name, insns, imm_field_list, imm_index + 1)?;
+        generate_each_field_pattern(file, ext_name, insns, opc_field_list, opc_index + 1)?;
         return Ok(());
     }
 
     writeln!(
         file,
         "match op_{end}_{start} {{",
-        end = imm_field_range.end,
-        start = imm_field_range.start
+        end = opc_field_range.end,
+        start = opc_field_range.start
     )?;
 
     grouped_insns.sort_by_key(std::vec::Vec::len);
@@ -120,12 +120,12 @@ fn generate_each_field_pattern(
                 .unwrap_or(&insn.name)
                 .to_uppercase();
 
-            if let Some(imm_val) = dbg!(insn).get_imm_value_by_range(dbg!(imm_field_range)) {
+            if let Some(opc_val) = dbg!(insn).get_opc_value_by_range(dbg!(opc_field_range)) {
                 indoc::writedoc!(
                     file,
-                    "\t\t{imm_val:#0width$b} => {ext_name}Opcode::{},\n",
+                    "\t\t{opc_val:#0width$b} => {ext_name}Opcode::{},\n",
                     insn_name_upper,
-                    width = imm_field_range.len(),
+                    width = opc_field_range.len(),
                 )?;
             } else {
                 indoc::writedoc!(file, "\t\t_ => {ext_name}Opcode::{},\n", insn_name_upper)?;
@@ -133,17 +133,17 @@ fn generate_each_field_pattern(
             }
         // non leaf
         } else {
-            if let Some(imm_val) = insns[0].get_imm_value_by_range(imm_field_range) {
+            if let Some(opc_val) = insns[0].get_opc_value_by_range(opc_field_range) {
                 write!(
                     file,
-                    "\t\t{imm_val:#0width$b} => ",
-                    width = imm_field_range.len()
+                    "\t\t{opc_val:#0width$b} => ",
+                    width = opc_field_range.len()
                 )?;
             } else {
                 write!(file, "\t\t_ => ")?;
                 is_wild_card_needed = false;
             }
-            generate_each_field_pattern(file, ext_name, &insns, imm_field_list, imm_index + 1)?;
+            generate_each_field_pattern(file, ext_name, &insns, opc_field_list, opc_index + 1)?;
         }
     }
 
@@ -161,14 +161,14 @@ fn generate_parsing_opecode_func(
     ext_name: &str,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut imm_field_set = HashSet::new();
+    let mut opc_field_set = HashSet::new();
     for insn in insns {
-        for immf in insn.get_imm_fields() {
-            imm_field_set.insert(immf.range.clone());
+        for opcf in insn.get_opc_fields() {
+            opc_field_set.insert(opcf.range.clone());
         }
     }
-    let mut imm_field_list: Vec<Range<u8>> = imm_field_set.into_iter().collect();
-    imm_field_list.sort_by(|a, b| {
+    let mut opc_field_list: Vec<Range<u8>> = opc_field_set.into_iter().collect();
+    opc_field_list.sort_by(|a, b| {
         if a.start == b.start {
             b.end.cmp(&a.end)
         } else {
@@ -181,16 +181,16 @@ fn generate_parsing_opecode_func(
         pub fn parse_opcode(inst: u32) -> Result<{ext_name}Opcode, DecodingError> {{
         "
     )?;
-    for imm_field in &imm_field_list {
+    for opc_field in &opc_field_list {
         writeln!(
             file,
             "let op_{end}_{start}: {typ} = {typ}::try_from(inst.slice({end}, {start})).unwrap(); ",
-            typ = if imm_field.len() <= 8 { "u8" } else { "u16" },
-            end = imm_field.end,
-            start = imm_field.start
+            typ = if opc_field.len() <= 8 { "u8" } else { "u16" },
+            end = opc_field.end,
+            start = opc_field.start
         )?;
     }
-    generate_each_field_pattern(file, ext_name, insns, &imm_field_list, 0)?;
+    generate_each_field_pattern(file, ext_name, insns, &opc_field_list, 0)?;
     indoc::writedoc!(
         file,
         "
@@ -229,7 +229,7 @@ pub fn create_raki_decoder(
     generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "imm", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "opc", ext_name, insns)?;
 
     Ok(())
 }

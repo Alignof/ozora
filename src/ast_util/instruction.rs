@@ -105,23 +105,23 @@ impl Instruction {
         })
     }
 
-    /// Get all immediate fields
-    pub fn get_imm_fields(&self) -> Vec<&Immediate> {
+    /// Get all opecode fields
+    pub fn get_opc_fields(&self) -> Vec<&Immediate> {
         self.operands
             .iter()
             .filter_map(|x| match x {
-                Operand::Imm(imm) => Some(imm),
+                Operand::Imm(opc) => Some(opc),
                 Operand::Named(_) => None,
             })
             .collect()
     }
 
-    /// Get immediate value by range
-    pub fn get_imm_value_by_range(&self, range: &Range<u8>) -> Option<u32> {
+    /// Get opecode value by range
+    pub fn get_opc_value_by_range(&self, range: &Range<u8>) -> Option<u32> {
         self.operands.iter().find_map(|x| match x {
-            Operand::Imm(imm) => {
-                if imm.range == *range {
-                    Some(imm.value)
+            Operand::Imm(opc) => {
+                if opc.range == *range {
+                    Some(opc.value)
                 } else {
                     None
                 }
