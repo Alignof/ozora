@@ -159,6 +159,42 @@ fn generate_each_field_pattern(
     Ok(())
 }
 
+/// Generate operand parsing function
+fn generate_parsing_opecode_func(
+    file: &mut File,
+    ext_name: &str,
+    insns: &Vec<Instruction>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut imm_field_set = HashSet::new();
+    for insn in insns {
+        for immf in insn.get_imm_fields() {
+            imm_field_set.insert(immf.range.clone());
+        }
+    }
+    let mut imm_field_list: Vec<Range<u8>> = imm_field_set.into_iter().collect();
+    imm_field_list.sort_by(|a, b| {
+        if a.start != b.start {
+            a.start.cmp(&b.start)
+        } else {
+            b.end.cmp(&a.end)
+        }
+    });
+    indoc::writedoc!(
+        file,
+        "
+        pub fn parse_opcode(inst: u32) -> Result<{ext_name}Opcode, DecodingError> {{
+        "
+    )?;
+    for imm_field in &imm_field_list {
+        writeln!(
+            file,
+            "let op_{end}_{start}: {typ} = {typ}::try_from(inst.slice({end}, {start})).unwrap(); ",
+            typ = if imm_field.len() <= 8 { "u8" } else { "u16" },
+            end = imm_field.end,
+            start = imm_field.start
+        )?;
+    }
+    generate_each_field_pattern(file, ext_name, insns, &imm_field_list, 0)?;
     indoc::writedoc!(
         file,
         "
@@ -170,6 +206,7 @@ fn generate_each_field_pattern(
     Ok(())
 }
 
+/// Generate operand parser.
 pub fn create_raki_decoder(
     ext_name: &str,
     output_path: &PathBuf,
@@ -191,16 +228,7 @@ pub fn create_raki_decoder(
         "
     )?;
 
-    // `parse_opcode`
-    indoc::writedoc!(
-        file,
-        "
-        pub fn parse_opcode(inst: u32) -> Result<ZicfissOpcode, DecodingError> {{
-            let opmap: u8 = u8::try_from(inst.slice(6, 0)).unwrap();
-        }}
-
-        "
-    )?;
+    generate_parsing_opecode_func(&mut file, ext_name, insns)?;
 
     generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
