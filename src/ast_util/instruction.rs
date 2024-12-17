@@ -52,17 +52,17 @@ impl InstType {
 
 /// Operand data
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct NamedOperand {
+pub struct Operand {
     /// Field name
     name: String,
     /// Bit map of the field.
     pub range: Range<u8>,
 }
 
-/// Immediate data
+/// Opecode data
 #[derive(Debug, Clone)]
-pub struct Immediate {
-    /// Immediate value
+pub struct Opecode {
+    /// Opecode value
     pub value: u32,
     /// Bit map of the field.
     pub range: Range<u8>,
@@ -70,11 +70,11 @@ pub struct Immediate {
 
 /// Bit field kind.
 #[derive(Debug, Clone)]
-pub enum Operand {
-    /// Immediate value
-    Imm(Immediate),
-    /// Named field. (e.g. `rd`, `rs1`)
-    Named(NamedOperand),
+pub enum Field {
+    /// Opecode value
+    Opc(Opecode),
+    /// Opr field. (e.g. `rd`, `rs1`)
+    Opr(Operand),
 }
 
 /// Instruction data
@@ -87,46 +87,46 @@ pub struct Instruction {
     _group_name: Option<String>,
 
     /// List of operands.
-    operands: Vec<Operand>,
+    fields: Vec<Field>,
 }
 
 impl Instruction {
     /// Get a field by name
-    pub fn get_field_by_name(&self, field_name: &str) -> Option<&NamedOperand> {
-        self.operands.iter().find_map(|x| match x {
-            Operand::Named(n) => {
+    pub fn get_field_by_name(&self, field_name: &str) -> Option<&Operand> {
+        self.fields.iter().find_map(|x| match x {
+            Field::Opr(n) => {
                 if n.name == field_name {
                     Some(n)
                 } else {
                     None
                 }
             }
-            Operand::Imm(_) => None,
+            Field::Opc(_) => None,
         })
     }
 
     /// Get all opecode fields
-    pub fn get_opc_fields(&self) -> Vec<&Immediate> {
-        self.operands
+    pub fn get_opc_fields(&self) -> Vec<&Opecode> {
+        self.fields
             .iter()
             .filter_map(|x| match x {
-                Operand::Imm(opc) => Some(opc),
-                Operand::Named(_) => None,
+                Field::Opc(opc) => Some(opc),
+                Field::Opr(_) => None,
             })
             .collect()
     }
 
     /// Get opecode value by range
     pub fn get_opc_value_by_range(&self, range: &Range<u8>) -> Option<u32> {
-        self.operands.iter().find_map(|x| match x {
-            Operand::Imm(opc) => {
+        self.fields.iter().find_map(|x| match x {
+            Field::Opc(opc) => {
                 if opc.range == *range {
                     Some(opc.value)
                 } else {
                     None
                 }
             }
-            Operand::Named(_) => None,
+            Field::Opr(_) => None,
         })
     }
 }
@@ -195,7 +195,7 @@ fn fold_bitvector_concat_tree(bitvec_concat: Expression) -> Vec<ExpressionAux> {
 
 /// Get rhs of the encode data.
 #[allow(clippy::cast_possible_truncation)]
-pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
+pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
     let mut op_list = Vec::new();
     let mut offset = 0;
     let exp_list = fold_bitvector_concat_tree(pat_rhs);
@@ -216,7 +216,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
                     }
                 });
 
-                op_list.push(Operand::Imm(Immediate {
+                op_list.push(Field::Opc(Opecode {
                     value: bit_vec,
                     range: offset..u8::try_from(bit_width).unwrap() - 1 + offset,
                 }));
@@ -241,7 +241,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
                     panic!("unexpected NumericExpressionAux: {:#?}", *num_exp.inner);
                 };
 
-                op_list.push(Operand::Named(NamedOperand {
+                op_list.push(Field::Opr(Operand {
                     name: unwrap_ident(cast_ident).to_string(),
                     range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
                 }));
@@ -276,7 +276,7 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                             inst_list.push(Instruction {
                                 name: get_encoding_rule_lhs(&ident, inst, &pat_list),
                                 _group_name: inst.index.map(|_| inst.name.clone()),
-                                operands: get_encoding_rule_rhs(pat_rhs.clone()),
+                                fields: get_encoding_rule_rhs(pat_rhs.clone()),
                             });
                         }
                     }
