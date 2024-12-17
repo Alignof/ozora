@@ -48,11 +48,7 @@ fn main() -> Result<()> {
 
     // Check that the first character of the extension name is capitalized
     assert!(
-        args.ext_name
-            .chars()
-            .next()
-            .map(|c| c.is_uppercase())
-            .unwrap_or(false),
+        args.ext_name.chars().next().is_some_and(char::is_uppercase),
         "The First character of the extension name is not capitalized"
     );
 

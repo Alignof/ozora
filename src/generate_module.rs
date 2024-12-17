@@ -104,7 +104,7 @@ pub fn create_hikami_module(
     )?;
 
     // generate implementation of ExtensionEmulation trait.
-    generate_inst_handler(&mut file, &ext_name, &insns)?;
+    generate_inst_handler(&mut file, ext_name, insns)?;
 
     // generate implementation of ExtensionEmulation trait.
     indoc::writedoc!(

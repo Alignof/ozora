@@ -1,4 +1,3 @@
-use log::info;
 use std::ops::Range;
 use std::path::Path;
 
@@ -242,7 +241,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
                 };
 
                 op_list.push(Operand::Named(NamedOperand {
-                    name: unwrap_ident(&cast_ident).to_string(),
+                    name: unwrap_ident(cast_ident).to_string(),
                     range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
                 }));
 
@@ -275,10 +274,7 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                         {
                             inst_list.push(Instruction {
                                 name: get_encoding_rule_lhs(&ident, inst, &pat_list),
-                                group_name: match inst.index {
-                                    Some(_) => Some(inst.name.clone()),
-                                    None => None,
-                                },
+                                group_name: inst.index.map(|_| inst.name.clone()),
                                 operands: get_encoding_rule_rhs(pat_rhs.clone()),
                             });
                         }

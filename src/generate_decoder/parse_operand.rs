@@ -29,7 +29,7 @@ fn generically_generate_parsing_reg_func(
             reg_field_set.insert(field.range.clone());
         }
     }
-    for reg_field_range in reg_field_set.iter() {
+    for reg_field_range in &reg_field_set {
         indoc::writedoc!(
             file,
             "
@@ -100,7 +100,7 @@ fn generate_each_field_pattern(
 
     // skip this level
     if grouped_insns.len() == 1 {
-        generate_each_field_pattern(file, ext_name, &insns, imm_field_list, imm_index + 1)?;
+        generate_each_field_pattern(file, ext_name, insns, imm_field_list, imm_index + 1)?;
         return Ok(());
     }
 
@@ -111,7 +111,7 @@ fn generate_each_field_pattern(
         start = imm_field_range.start
     )?;
 
-    grouped_insns.sort_by(|a, b| a.len().cmp(&b.len()));
+    grouped_insns.sort_by_key(std::vec::Vec::len);
     let mut is_wild_card_needed = true;
     for insns in grouped_insns {
         // leaf
@@ -136,16 +136,15 @@ fn generate_each_field_pattern(
             }
         // non leaf
         } else {
-            match insns[0].get_imm_value_by_range(imm_field_range) {
-                Some(imm_val) => write!(
+            if let Some(imm_val) = insns[0].get_imm_value_by_range(imm_field_range) {
+                write!(
                     file,
                     "\t\t{imm_val:#0width$b} => ",
                     width = imm_field_range.len()
-                )?,
-                None => {
-                    write!(file, "\t\t_ => ")?;
-                    is_wild_card_needed = false;
-                }
+                )?;
+            } else {
+                write!(file, "\t\t_ => ")?;
+                is_wild_card_needed = false;
             }
             generate_each_field_pattern(file, ext_name, &insns, imm_field_list, imm_index + 1)?;
         }
