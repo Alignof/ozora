@@ -202,6 +202,72 @@ fn generate_parsing_opecode_func(
     Ok(())
 }
 
+/// Generate unit tests for decoder.
+fn generate_unit_tests(
+    file: &mut File,
+    ext_name: &str,
+    insns: &Vec<Instruction>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    indoc::writedoc!(
+        file,
+        "
+        #[cfg(test)]
+        #[allow(unused_variables)]
+        mod test_{ext_name} {{
+            #[test]
+            #[allow(overflowing_literals)]
+            fn {ext_name}_32bit_decode_test() {{
+                use super::*;
+                use crate::{{Decode, Isa, OpcodeKind}};
+
+                let test_32 = |inst_32: u32,
+                               expected_op: OpcodeKind,
+                               expected_rd: Option<usize>,
+                               expected_rs1: Option<usize>,
+                               expected_rs2: Option<usize>,
+                               expected_imm: Option<i32>| {{
+                    let op_32 = inst_32.parse_opcode(Isa::Rv64).unwrap();
+                    assert_eq!(op_32, expected_op);
+                    assert_eq!(inst_32.parse_rd(&op_32).unwrap(), expected_rd);
+                    assert_eq!(inst_32.parse_rs1(&op_32).unwrap(), expected_rs1);
+                    assert_eq!(inst_32.parse_rs2(&op_32).unwrap(), expected_rs2);
+                    assert_eq!(inst_32.parse_imm(&op_32, Isa::Rv64).unwrap(), expected_imm);
+                }};
+        ",
+        ext_name = ext_name.to_lowercase(),
+    )?;
+
+    for insn in insns {
+        let (insn_val, rd, rs1, rs2, imm) = insn.get_random_insn_value();
+        indoc::writedoc!(
+            file,
+            "
+                test_32(
+                    {insn_val:#032b},
+                    OpcodeKind::{ext_name}({ext_name}Opcode::{}),
+                    {rd:?},
+                    {rs1:?},
+                    {rs2:?},
+                    {imm:?},
+                );
+            ",
+            insn.name
+                .strip_prefix("RISCV_")
+                .unwrap_or(&insn.name)
+                .to_uppercase(),
+        )?;
+    }
+    indoc::writedoc!(
+        file,
+        "
+            }}
+        }}
+        ",
+    )?;
+
+    Ok(())
+}
+
 /// Generate operand parser.
 pub fn create_raki_decoder(
     ext_name: &str,
@@ -230,6 +296,8 @@ pub fn create_raki_decoder(
     generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "opc", ext_name, insns)?;
+
+    generate_unit_tests(&mut file, ext_name, insns)?;
 
     Ok(())
 }
