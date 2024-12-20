@@ -140,16 +140,16 @@ impl Instruction {
         let mut rng = rand::thread_rng();
         let rd = self
             .get_field_by_name("rd")
-            .map(|x| rng.gen_range(0..x.range.len()) as u32);
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
         let rs1 = self
             .get_field_by_name("rs1")
-            .map(|x| rng.gen_range(0..x.range.len()) as u32);
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
         let rs2 = self
             .get_field_by_name("rs2")
-            .map(|x| rng.gen_range(0..x.range.len()) as u32);
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
         let mut imm = self
             .get_field_by_name("imm")
-            .map(|x| rng.gen_range(0..x.range.len()) as u32);
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
 
         let insn_val = self.fields.iter().fold(0u32, |bits, field| match field {
             Field::Opr(opr) => {
@@ -160,7 +160,7 @@ impl Instruction {
                         "rs2" => rs2.unwrap(),
                         "imm" => imm.unwrap(),
                         "shamt" => {
-                            let new_rand = rng.gen_range(0..opr.range.len()) as u32;
+                            let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
                             imm = Some(new_rand);
                             new_rand
                         }
