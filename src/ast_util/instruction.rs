@@ -134,6 +134,7 @@ impl Instruction {
     /// Get random instruction value.
     ///
     /// This function mainly targets for unit test.
+    #[allow(clippy::cast_sign_loss)]
     pub fn get_random_insn_value(
         &self,
     ) -> (u32, Option<u32>, Option<u32>, Option<u32>, Option<u32>) {

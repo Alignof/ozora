@@ -14,7 +14,7 @@ fn generate_inst_handler(
 ) -> Result<(), Box<dyn std::error::Error>> {
     indoc::writedoc!(
         file,
-        r#"
+        r"
         impl EmulateExtension for {ext_name} {{
             /// Emulate {ext_name} instruction.
             #[allow(clippy::cast_possible_truncation)]
@@ -26,7 +26,7 @@ fn generate_inst_handler(
                     .context;
 
                 match inst.opc {{
-        "#,
+        ",
     )?;
 
     // generate instruction pattern from insns data.
