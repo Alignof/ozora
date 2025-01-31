@@ -19,8 +19,12 @@ fn generically_generate_parsing_reg_func(
         file,
         "
         /// Parsing {ext_name} instruction's {reg_type}
-        pub fn parse_{reg_type}(inst: u32, opkind: &{ext_name}Opcode) -> Option<usize> {{
-        "
+        pub fn parse_{reg_type}(inst: u32, opkind: &{ext_name}Opcode) -> Option<{type_name}> {{
+        ",
+        type_name = match reg_type {
+            "imm" => "i32",
+            _ => "usize",
+        }
     )?;
 
     let mut reg_field_set = HashSet::new();
@@ -123,12 +127,16 @@ fn generate_each_field_pattern(
             if let Some(opc_val) = dbg!(insn).get_opc_value_by_range(dbg!(opc_field_range)) {
                 indoc::writedoc!(
                     file,
-                    "\t\t{opc_val:#0width$b} => {ext_name}Opcode::{},\n",
+                    "\t\t{opc_val:#0width$b} => Ok({ext_name}Opcode::{}),\n",
                     insn_name_upper,
                     width = opc_field_range.len(),
                 )?;
             } else {
-                indoc::writedoc!(file, "\t\t_ => {ext_name}Opcode::{},\n", insn_name_upper)?;
+                indoc::writedoc!(
+                    file,
+                    "\t\t_ => Ok({ext_name}Opcode::{}),\n",
+                    insn_name_upper
+                )?;
                 is_wild_card_needed = false;
             }
         // non leaf
@@ -213,11 +221,11 @@ fn generate_unit_tests(
         "
         #[cfg(test)]
         #[allow(unused_variables)]
-        mod test_{ext_name} {{
+        mod test_{ext_name_lower} {{
             #[test]
             #[allow(overflowing_literals)]
-            fn {ext_name}_32bit_decode_test() {{
-                use super::*;
+            fn {ext_name_lower}_32bit_decode_test() {{
+                use crate::instruction::{ext_name_lower}_extension::{ext_name}Opcode;
                 use crate::{{Decode, Isa, OpcodeKind}};
 
                 let test_32 = |inst_32: u32,
@@ -234,7 +242,7 @@ fn generate_unit_tests(
                     assert_eq!(inst_32.parse_imm(&op_32, Isa::Rv64).unwrap(), expected_imm);
                 }};
         ",
-        ext_name = ext_name.to_lowercase(),
+        ext_name_lower = ext_name.to_lowercase(),
     )?;
 
     for insn in insns {
@@ -276,7 +284,10 @@ pub fn create_raki_decoder(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dir_name = "decode";
     let _ = std::fs::create_dir(output_path.with_file_name(dir_name));
-    let mut file = File::create(output_path.with_file_name(format!("{dir_name}/{ext_name}.rs")))?;
+    let mut file = File::create(output_path.with_file_name(format!(
+        "{dir_name}/{}_extension.rs",
+        ext_name.to_lowercase()
+    )))?;
 
     // Document of a module and import statements.
     indoc::writedoc!(
@@ -284,10 +295,12 @@ pub fn create_raki_decoder(
         "
         //! {ext_name} extension decoder
 
+        pub mod bit_32 {{
         use super::super::{{DecodeUtil, DecodingError}};
-        use crate::instruction::zicfiss_extension::ZicfissOpcode;
+        use crate::instruction::{}_extension::{ext_name}Opcode;
 
-        "
+        ",
+        ext_name.to_lowercase()
     )?;
 
     generate_parsing_opecode_func(&mut file, ext_name, insns)?;
@@ -295,7 +308,9 @@ pub fn create_raki_decoder(
     generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
     generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "opc", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "imm", ext_name, insns)?;
+
+    indoc::writedoc!(file, "}}")?;
 
     generate_unit_tests(&mut file, ext_name, insns)?;
 
