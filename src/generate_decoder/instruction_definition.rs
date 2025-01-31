@@ -14,7 +14,10 @@ pub fn create_raki_insn_def(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dir_name = "instruction";
     let _ = std::fs::create_dir(output_path.with_file_name(dir_name));
-    let mut file = File::create(output_path.with_file_name(format!("{dir_name}/{ext_name}.rs")))?;
+    let mut file = File::create(output_path.with_file_name(format!(
+        "{dir_name}/{}_extension.rs",
+        ext_name.to_lowercase()
+    )))?;
 
     // Doc comment and import statements.
     indoc::writedoc!(
@@ -59,7 +62,7 @@ pub fn create_raki_insn_def(
         file,
         "
 
-        impl Display for ZicfissOpcode {{
+        impl Display for {ext_name}Opcode {{
             fn fmt(&self, f: &mut Formatter) -> fmt::Result {{
                 match self {{
         "
@@ -89,7 +92,7 @@ pub fn create_raki_insn_def(
         file,
         "
 
-        impl Opcode for ZicfissOpcode {{
+        impl Opcode for {ext_name}Opcode {{
             fn get_format(&self) -> InstFormat {{
                 match self {{
         "
