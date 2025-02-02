@@ -299,6 +299,48 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
     op_list
 }
 
+/// Get xlen condition
+fn is_mapping_enabled(exp0: &Expression) -> bool {
+    dbg!(exp0);
+    match *exp0.inner {
+        ExpressionAux::Application(ref ident, ref pat_list) => {
+            assert_eq!(pat_list.len(), 2);
+            match ident.as_interned().to_string().as_str() {
+                "and_bool" => {
+                    is_mapping_enabled(pat_list.iter().nth(0).unwrap())
+                        && is_mapping_enabled(pat_list.iter().nth(1).unwrap())
+                }
+                "or_bool" => {
+                    is_mapping_enabled(pat_list.iter().nth(0).unwrap())
+                        || is_mapping_enabled(pat_list.iter().nth(1).unwrap())
+                }
+                "eq_int" => {
+                    let eq_int_lhs = pat_list.iter().nth(0).unwrap();
+                    let ExpressionAux::Identifier(ref xlen_str) = *eq_int_lhs.inner else {
+                        panic!("not a ExpressionAux::Identifier");
+                    };
+                    assert_eq!(xlen_str.as_interned().to_string().as_str(), "xlen");
+                    let eq_int_rhs = pat_list.iter().nth(1).unwrap();
+                    let ExpressionAux::Literal(ref xlen_value) = *eq_int_rhs.inner else {
+                        panic!("not a ExpressionAux::Literal");
+                    };
+
+                    let LiteralAux::Num(ref xlen_value) = xlen_value.inner else {
+                        panic!("not a number");
+                    };
+
+                    xlen_value.0.bits() as u32 == XLEN
+                }
+                "eq_bit" => true, // assume that a bit comparing is true.
+                unknown => unreachable!("unknown application: {}", unknown),
+            }
+        }
+        ExpressionAux::Literal(ref _literal) => true, // assume that extensionEnabled(Ext_Name) is true.
+
+        _ => todo!(""),
+    }
+}
+
 /// Get encode data of provided instructions.
 pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
     let encdec_node = AST.get().unwrap().get_encdec_forward_node().unwrap();
@@ -312,46 +354,18 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                 // exp0: if extensionEnabled(Ext_Zba) & xlen == 64
                 // pat_rhs: 0b000010 @ shamt @ rs1 @ 0b001 @ rd @ 0b0011011
                 if let PatternMatchAux::When(pat_lhs, ref exp0, pat_rhs) = pat.inner {
-                    dbg!(exp0);
-                    if let ExpressionAux::Application(ref _ident, ref pat_list) = *exp0.inner {
-                        assert_eq!(pat_list.len(), 2);
-                        if let ExpressionAux::Application(_ident, ref lhs_rhs) =
-                            *pat_list.iter().nth(1).unwrap().inner.clone()
-                        {
-                            let ExpressionAux::Identifier(xlen_name) =
-                                *lhs_rhs.iter().nth(0).unwrap().inner.clone()
-                            else {
-                                panic!();
-                            };
-
-                            let IdentifierAux::Identifier(xlen_str) = xlen_name.inner else {
-                                panic!();
-                            };
-                            assert_eq!(xlen_str, "xlen".into());
-
-                            let ExpressionAux::Literal(xlen_val) =
-                                *lhs_rhs.iter().nth(1).unwrap().inner.clone()
-                            else {
-                                panic!();
-                            };
-
-                            if let LiteralAux::Num(xlen) = xlen_val.inner {
-                                if xlen != sailrs::num::BigInt(XLEN.into()) {
-                                    continue;
-                                }
+                    if is_mapping_enabled(exp0) {
+                        if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
+                            if let Some(inst) = inst_type_list
+                                .iter()
+                                .find(|x| x.name == unwrap_ident(&ident).as_ref())
+                            {
+                                inst_list.push(Instruction {
+                                    name: get_encoding_rule_lhs(&ident, inst, &pat_list),
+                                    _group_name: inst.index.map(|_| inst.name.clone()),
+                                    fields: get_encoding_rule_rhs(pat_rhs.clone()),
+                                });
                             }
-                        }
-                    }
-                    if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
-                        if let Some(inst) = inst_type_list
-                            .iter()
-                            .find(|x| x.name == unwrap_ident(&ident).as_ref())
-                        {
-                            inst_list.push(Instruction {
-                                name: get_encoding_rule_lhs(&ident, inst, &pat_list),
-                                _group_name: inst.index.map(|_| inst.name.clone()),
-                                fields: get_encoding_rule_rhs(pat_rhs.clone()),
-                            });
                         }
                     }
                 }
