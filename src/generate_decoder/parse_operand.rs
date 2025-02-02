@@ -124,7 +124,7 @@ fn generate_each_field_pattern(
                 .unwrap_or(&insn.name)
                 .to_uppercase();
 
-            if let Some(opc_val) = dbg!(insn).get_opc_value_by_range(dbg!(opc_field_range)) {
+            if let Some(opc_val) = insn.get_opc_value_by_range(opc_field_range) {
                 indoc::writedoc!(
                     file,
                     "\t\t{opc_val:#0width$b} => Ok({ext_name}Opcode::{}),\n",

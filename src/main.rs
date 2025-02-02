@@ -13,6 +13,8 @@ use sailrs::{init_logger, parse_sail_files};
 
 use ast_util::{Ast, AST};
 
+const XLEN: u32 = 64;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {

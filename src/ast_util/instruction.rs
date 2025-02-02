@@ -3,14 +3,14 @@ use std::path::Path;
 
 use rand::Rng;
 use sailrs::sail_ast::{
-    DefinitionAux, Expression, ExpressionAux, Identifier, LiteralAux, Location,
+    DefinitionAux, Expression, ExpressionAux, Identifier, IdentifierAux, LiteralAux, Location,
     NumericExpressionAux, Pattern, PatternAux, PatternMatchAux, TypArgAux, TypAux,
     TypeDefinitionAux, TypeUnion,
 };
 use sailrs::types::ListVec;
 
 use super::unwrap_ident;
-use crate::AST;
+use crate::{AST, XLEN};
 
 /// Union clause definition for AST.
 ///
@@ -311,7 +311,37 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                 // pat_lhs: RISCV_SLLIUW(shamt, rs1, rd)
                 // exp0: if extensionEnabled(Ext_Zba) & xlen == 64
                 // pat_rhs: 0b000010 @ shamt @ rs1 @ 0b001 @ rd @ 0b0011011
-                if let PatternMatchAux::When(pat_lhs, _exp0, pat_rhs) = pat.inner {
+                if let PatternMatchAux::When(pat_lhs, ref exp0, pat_rhs) = pat.inner {
+                    dbg!(exp0);
+                    if let ExpressionAux::Application(ref _ident, ref pat_list) = *exp0.inner {
+                        assert_eq!(pat_list.len(), 2);
+                        if let ExpressionAux::Application(_ident, ref lhs_rhs) =
+                            *pat_list.iter().nth(1).unwrap().inner.clone()
+                        {
+                            let ExpressionAux::Identifier(xlen_name) =
+                                *lhs_rhs.iter().nth(0).unwrap().inner.clone()
+                            else {
+                                panic!();
+                            };
+
+                            let IdentifierAux::Identifier(xlen_str) = xlen_name.inner else {
+                                panic!();
+                            };
+                            assert_eq!(xlen_str, "xlen".into());
+
+                            let ExpressionAux::Literal(xlen_val) =
+                                *lhs_rhs.iter().nth(1).unwrap().inner.clone()
+                            else {
+                                panic!();
+                            };
+
+                            if let LiteralAux::Num(xlen) = xlen_val.inner {
+                                if xlen != sailrs::num::BigInt(XLEN.into()) {
+                                    continue;
+                                }
+                            }
+                        }
+                    }
                     if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
                         if let Some(inst) = inst_type_list
                             .iter()
