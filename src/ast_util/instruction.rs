@@ -1,7 +1,7 @@
-use log::info;
 use std::ops::Range;
 use std::path::Path;
 
+use rand::Rng;
 use sailrs::sail_ast::{
     DefinitionAux, Expression, ExpressionAux, Identifier, LiteralAux, Location,
     NumericExpressionAux, Pattern, PatternAux, PatternMatchAux, TypArgAux, TypAux,
@@ -10,7 +10,7 @@ use sailrs::sail_ast::{
 use sailrs::types::ListVec;
 
 use super::unwrap_ident;
-use crate::AST;
+use crate::{AST, XLEN};
 
 /// Union clause definition for AST.
 ///
@@ -52,43 +52,127 @@ impl InstType {
 }
 
 /// Operand data
-#[derive(Debug)]
-pub struct NamedOperand {
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+pub struct Operand {
     /// Field name
     name: String,
     /// Bit map of the field.
-    range: Range<u8>,
+    pub range: Range<u8>,
 }
 
-/// Immediate data
-#[derive(Debug)]
-pub struct Immediate {
-    /// Immediate value
-    value: u32,
+/// Opecode data
+#[derive(Debug, Clone)]
+pub struct Opecode {
+    /// Opecode value
+    pub value: u32,
     /// Bit map of the field.
-    range: Range<u8>,
+    pub range: Range<u8>,
 }
 
 /// Bit field kind.
-#[derive(Debug)]
-pub enum Operand {
-    /// Immediate value
-    Imm(Immediate),
-    /// Named field. (e.g. `rd`, `rs1`)
-    Named(NamedOperand),
+#[derive(Debug, Clone)]
+pub enum Field {
+    /// Opecode value
+    Opc(Opecode),
+    /// Opr field. (e.g. `rd`, `rs1`)
+    Opr(Operand),
 }
 
 /// Instruction data
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instruction {
     /// Instruction name.
     pub name: String,
 
     /// Group name (Name of `InstType`)
-    group_name: Option<String>,
+    _group_name: Option<String>,
 
     /// List of operands.
-    operands: Vec<Operand>,
+    fields: Vec<Field>,
+}
+
+impl Instruction {
+    /// Get a field by name
+    pub fn get_field_by_name(&self, field_name: &str) -> Option<&Operand> {
+        self.fields.iter().find_map(|x| match x {
+            Field::Opr(n) => {
+                if n.name == field_name {
+                    Some(n)
+                } else {
+                    None
+                }
+            }
+            Field::Opc(_) => None,
+        })
+    }
+
+    /// Get all opecode fields
+    pub fn get_opc_fields(&self) -> Vec<&Opecode> {
+        self.fields
+            .iter()
+            .filter_map(|x| match x {
+                Field::Opc(opc) => Some(opc),
+                Field::Opr(_) => None,
+            })
+            .collect()
+    }
+
+    /// Get opecode value by range
+    pub fn get_opc_value_by_range(&self, range: &Range<u8>) -> Option<u32> {
+        self.fields.iter().find_map(|x| match x {
+            Field::Opc(opc) => {
+                if opc.range == *range {
+                    Some(opc.value)
+                } else {
+                    None
+                }
+            }
+            Field::Opr(_) => None,
+        })
+    }
+
+    /// Get random instruction value.
+    ///
+    /// This function mainly targets for unit test.
+    #[allow(clippy::cast_sign_loss)]
+    pub fn get_random_insn_value(
+        &self,
+    ) -> (u32, Option<u32>, Option<u32>, Option<u32>, Option<u32>) {
+        let mut rng = rand::thread_rng();
+        let rd = self
+            .get_field_by_name("rd")
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
+        let rs1 = self
+            .get_field_by_name("rs1")
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
+        let rs2 = self
+            .get_field_by_name("rs2")
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
+        let mut imm = self
+            .get_field_by_name("imm")
+            .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
+
+        let insn_val = self.fields.iter().fold(0u32, |bits, field| match field {
+            Field::Opr(opr) => {
+                bits << opr.range.len()
+                    | match opr.name.as_str() {
+                        "rd" => rd.unwrap(),
+                        "rs1" => rs1.unwrap(),
+                        "rs2" => rs2.unwrap(),
+                        "imm" => imm.unwrap(),
+                        "shamt" => {
+                            let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
+                            imm = Some(new_rand);
+                            new_rand
+                        }
+                        _ => panic!("unsupported operand: {}", opr.name),
+                    }
+            }
+            Field::Opc(opc) => bits << opc.range.len() | opc.value,
+        });
+
+        (insn_val, rd, rs1, rs2, imm)
+    }
 }
 
 /// Get ast node that is contained in target file.
@@ -154,7 +238,8 @@ fn fold_bitvector_concat_tree(bitvec_concat: Expression) -> Vec<ExpressionAux> {
 }
 
 /// Get rhs of the encode data.
-pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
+#[allow(clippy::cast_possible_truncation)]
+pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
     let mut op_list = Vec::new();
     let mut offset = 0;
     let exp_list = fold_bitvector_concat_tree(pat_rhs);
@@ -175,9 +260,9 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
                     }
                 });
 
-                op_list.push(Operand::Imm(Immediate {
+                op_list.push(Field::Opc(Opecode {
                     value: bit_vec,
-                    range: u8::try_from(bit_width).unwrap() - 1 + offset..offset,
+                    range: offset..u8::try_from(bit_width).unwrap() - 1 + offset,
                 }));
 
                 offset += bit_width as u8;
@@ -200,9 +285,9 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
                     panic!("unexpected NumericExpressionAux: {:#?}", *num_exp.inner);
                 };
 
-                op_list.push(Operand::Named(NamedOperand {
-                    name: unwrap_ident(&cast_ident).to_string(),
-                    range: u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset..offset,
+                op_list.push(Field::Opr(Operand {
+                    name: unwrap_ident(cast_ident).to_string(),
+                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
                 }));
 
                 offset += u8::try_from(bit_width.0).unwrap();
@@ -212,6 +297,48 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Operand> {
     }
 
     op_list
+}
+
+/// Get xlen condition
+fn is_mapping_enabled(exp0: &Expression) -> bool {
+    dbg!(exp0);
+    match *exp0.inner {
+        ExpressionAux::Application(ref ident, ref pat_list) => {
+            assert_eq!(pat_list.len(), 2);
+            match ident.as_interned().to_string().as_str() {
+                "and_bool" => {
+                    is_mapping_enabled(pat_list.iter().next().unwrap())
+                        && is_mapping_enabled(pat_list.iter().nth(1).unwrap())
+                }
+                "or_bool" => {
+                    is_mapping_enabled(pat_list.iter().next().unwrap())
+                        || is_mapping_enabled(pat_list.iter().nth(1).unwrap())
+                }
+                "eq_int" => {
+                    let eq_int_lhs = pat_list.iter().next().unwrap();
+                    let ExpressionAux::Identifier(ref xlen_str) = *eq_int_lhs.inner else {
+                        panic!("not a ExpressionAux::Identifier");
+                    };
+                    assert_eq!(xlen_str.as_interned().to_string().as_str(), "xlen");
+                    let eq_int_rhs = pat_list.iter().nth(1).unwrap();
+                    let ExpressionAux::Literal(ref xlen_value) = *eq_int_rhs.inner else {
+                        panic!("not a ExpressionAux::Literal");
+                    };
+
+                    let LiteralAux::Num(ref xlen_value) = xlen_value.inner else {
+                        panic!("not a number");
+                    };
+
+                    u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
+                }
+                "eq_bit" => true, // assume that a bit comparing is true.
+                unknown => unreachable!("unknown application: {}", unknown),
+            }
+        }
+        ExpressionAux::Literal(ref _literal) => true, // assume that extensionEnabled(Ext_Name) is true.
+
+        _ => todo!(""),
+    }
 }
 
 /// Get encode data of provided instructions.
@@ -226,20 +353,19 @@ pub fn get_encoding_rule(target_file_name: &str) -> Vec<Instruction> {
                 // pat_lhs: RISCV_SLLIUW(shamt, rs1, rd)
                 // exp0: if extensionEnabled(Ext_Zba) & xlen == 64
                 // pat_rhs: 0b000010 @ shamt @ rs1 @ 0b001 @ rd @ 0b0011011
-                if let PatternMatchAux::When(pat_lhs, _exp0, pat_rhs) = pat.inner {
-                    if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
-                        if let Some(inst) = inst_type_list
-                            .iter()
-                            .find(|x| x.name == unwrap_ident(&ident).as_ref())
-                        {
-                            inst_list.push(Instruction {
-                                name: get_encoding_rule_lhs(&ident, inst, &pat_list),
-                                group_name: match inst.index {
-                                    Some(_) => Some(inst.name.clone()),
-                                    None => None,
-                                },
-                                operands: get_encoding_rule_rhs(pat_rhs.clone()),
-                            });
+                if let PatternMatchAux::When(pat_lhs, ref exp0, pat_rhs) = pat.inner {
+                    if is_mapping_enabled(exp0) {
+                        if let PatternAux::Application(ident, pat_list) = *pat_lhs.inner {
+                            if let Some(inst) = inst_type_list
+                                .iter()
+                                .find(|x| x.name == unwrap_ident(&ident).as_ref())
+                            {
+                                inst_list.push(Instruction {
+                                    name: get_encoding_rule_lhs(&ident, inst, &pat_list),
+                                    _group_name: inst.index.map(|_| inst.name.clone()),
+                                    fields: get_encoding_rule_rhs(pat_rhs.clone()),
+                                });
+                            }
                         }
                     }
                 }

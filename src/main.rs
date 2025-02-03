@@ -1,4 +1,5 @@
 mod ast_util;
+mod generate_decoder;
 mod generate_module;
 mod jib_util;
 
@@ -11,6 +12,8 @@ use log::info;
 use sailrs::{init_logger, parse_sail_files};
 
 use ast_util::{Ast, AST};
+
+const XLEN: u32 = 64;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -47,11 +50,7 @@ fn main() -> Result<()> {
 
     // Check that the first character of the extension name is capitalized
     assert!(
-        args.ext_name
-            .chars()
-            .next()
-            .map(|c| c.is_uppercase())
-            .unwrap_or(false),
+        args.ext_name.chars().next().is_some_and(char::is_uppercase),
         "The First character of the extension name is not capitalized"
     );
 
@@ -66,7 +65,17 @@ fn main() -> Result<()> {
     let insns = ast_util::instruction::get_encoding_rule("riscv_insts_zbb.sail");
     ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
 
-    generate_module::create_hikami_module(args.ext_name, args.output, insns).unwrap();
+    generate_module::create_hikami_module(&args.ext_name, &args.output, &insns).unwrap();
+
+    generate_decoder::instruction_definition::create_raki_insn_def(
+        &args.ext_name,
+        &args.output,
+        &insns,
+    )
+    .unwrap();
+
+    generate_decoder::parse_operand::create_raki_decoder(&args.ext_name, &args.output, &insns)
+        .unwrap();
 
     info!("done");
 

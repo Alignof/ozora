@@ -14,7 +14,7 @@ fn generate_inst_handler(
 ) -> Result<(), Box<dyn std::error::Error>> {
     indoc::writedoc!(
         file,
-        r#"
+        r"
         impl EmulateExtension for {ext_name} {{
             /// Emulate {ext_name} instruction.
             #[allow(clippy::cast_possible_truncation)]
@@ -26,7 +26,7 @@ fn generate_inst_handler(
                     .context;
 
                 match inst.opc {{
-        "#,
+        ",
     )?;
 
     // generate instruction pattern from insns data.
@@ -55,9 +55,9 @@ fn generate_inst_handler(
 
 /// Genarate hypervisor module.
 pub fn create_hikami_module(
-    ext_name: String,
-    output_path: PathBuf,
-    insns: Vec<Instruction>,
+    ext_name: &str,
+    output_path: &PathBuf,
+    insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create(output_path)?;
     writeln!(file, "//! Emulation {ext_name}")?;
@@ -104,7 +104,7 @@ pub fn create_hikami_module(
     )?;
 
     // generate implementation of ExtensionEmulation trait.
-    generate_inst_handler(&mut file, &ext_name, &insns)?;
+    generate_inst_handler(&mut file, ext_name, insns)?;
 
     // generate implementation of ExtensionEmulation trait.
     indoc::writedoc!(
