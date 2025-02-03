@@ -3,7 +3,7 @@ use std::path::Path;
 
 use rand::Rng;
 use sailrs::sail_ast::{
-    DefinitionAux, Expression, ExpressionAux, Identifier, IdentifierAux, LiteralAux, Location,
+    DefinitionAux, Expression, ExpressionAux, Identifier, LiteralAux, Location,
     NumericExpressionAux, Pattern, PatternAux, PatternMatchAux, TypArgAux, TypAux,
     TypeDefinitionAux, TypeUnion,
 };
@@ -307,15 +307,15 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
             assert_eq!(pat_list.len(), 2);
             match ident.as_interned().to_string().as_str() {
                 "and_bool" => {
-                    is_mapping_enabled(pat_list.iter().nth(0).unwrap())
+                    is_mapping_enabled(pat_list.iter().next().unwrap())
                         && is_mapping_enabled(pat_list.iter().nth(1).unwrap())
                 }
                 "or_bool" => {
-                    is_mapping_enabled(pat_list.iter().nth(0).unwrap())
+                    is_mapping_enabled(pat_list.iter().next().unwrap())
                         || is_mapping_enabled(pat_list.iter().nth(1).unwrap())
                 }
                 "eq_int" => {
-                    let eq_int_lhs = pat_list.iter().nth(0).unwrap();
+                    let eq_int_lhs = pat_list.iter().next().unwrap();
                     let ExpressionAux::Identifier(ref xlen_str) = *eq_int_lhs.inner else {
                         panic!("not a ExpressionAux::Identifier");
                     };
@@ -329,7 +329,7 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
                         panic!("not a number");
                     };
 
-                    xlen_value.0.bits() as u32 == XLEN
+                    u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
                 }
                 "eq_bit" => true, // assume that a bit comparing is true.
                 unknown => unreachable!("unknown application: {}", unknown),
