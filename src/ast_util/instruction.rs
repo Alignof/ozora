@@ -3,7 +3,7 @@ use std::path::Path;
 
 use rand::Rng;
 use sailrs::sail_ast::{
-    DefinitionAux, Expression, ExpressionAux, Identifier, LiteralAux, Location,
+    DefinitionAux, Expression, ExpressionAux, Identifier, IdentifierAux, LiteralAux, Location,
     NumericExpressionAux, Pattern, PatternAux, PatternMatchAux, TypArgAux, TypAux,
     TypeDefinitionAux, TypeUnion,
 };
@@ -165,6 +165,16 @@ impl Instruction {
                             imm = Some(new_rand);
                             new_rand
                         }
+                        "rl" => {
+                            let new_rand = rng.gen_range(0..1);
+                            imm = Some(new_rand);
+                            new_rand
+                        }
+                        "aq" => {
+                            let new_rand = rng.gen_range(0..1);
+                            imm = imm.map(|x| x | new_rand << 1);
+                            new_rand << 1
+                        }
                         _ => panic!("unsupported operand: {}", opr.name),
                     }
             }
@@ -292,7 +302,30 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
                 offset += u8::try_from(bit_width.0).unwrap();
             }
-            _ => unreachable!(),
+            ExpressionAux::Application(ident, list) => {
+                let IdentifierAux::Identifier(app_name) = ident.inner else {
+                    panic!("not an identifier");
+                };
+                match app_name.to_string().as_str() {
+                    "bool_bits_forwards" => {
+                        assert_eq!(list.len(), 1);
+                        let ExpressionAux::Identifier(ref bit_name) =
+                            *list.iter().next().unwrap().inner
+                        else {
+                            panic!("not ExpressionAux::Identifier");
+                        };
+
+                        op_list.push(Field::Opr(Operand {
+                            name: unwrap_ident(bit_name).to_string(),
+                            range: offset..offset,
+                        }));
+
+                        offset += 1;
+                    }
+                    _ => unimplemented!(),
+                }
+            }
+            _ => unreachable!("exp_aux: {exp_aux:#?}"),
         }
     }
 
@@ -301,10 +334,13 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
 /// Get xlen condition
 fn is_mapping_enabled(exp0: &Expression) -> bool {
-    dbg!(exp0);
     match *exp0.inner {
         ExpressionAux::Application(ref ident, ref pat_list) => {
-            assert_eq!(pat_list.len(), 2);
+            // ignore function call
+            if pat_list.len() != 2 {
+                return true;
+            }
+
             match ident.as_interned().to_string().as_str() {
                 "and_bool" => {
                     is_mapping_enabled(pat_list.iter().next().unwrap())
@@ -331,7 +367,9 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
 
                     u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
                 }
-                "eq_bit" => true, // assume that a bit comparing is true.
+                "eq_bit" => true,   // assume that a bit comparing is true.
+                "eq_bits" => true,  // assume that a bits comparing is true.
+                "neq_bits" => true, // assume that a bits comparing is true.
                 unknown => unreachable!("unknown application: {}", unknown),
             }
         }
