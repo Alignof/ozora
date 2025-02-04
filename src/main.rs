@@ -27,7 +27,11 @@ struct Args {
     ext_name: String,
 
     /// Json file path contains target sail files.
-    input: PathBuf,
+    #[arg(long, default_value = "files.json")]
+    input_json: PathBuf,
+
+    /// Target file
+    target: PathBuf,
 
     /// Output path
     output: PathBuf,
@@ -59,11 +63,12 @@ fn main() -> Result<()> {
 
     intern::init(HashMap::default());
 
-    AST.set(Ast::new(parse_sail_files(args.input).unwrap()))
+    AST.set(Ast::new(parse_sail_files(args.input_json.clone()).unwrap()))
         .unwrap();
 
-    let insns = ast_util::instruction::get_encoding_rule("riscv_insts_zbb.sail");
-    ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
+    let target_file = args.target.as_os_str().to_str().unwrap();
+    let insns = ast_util::instruction::get_encoding_rule(target_file);
+    ast_util::csrs::show_csrs_definition(target_file);
 
     generate_module::create_hikami_module(&args.ext_name, &args.output, &insns).unwrap();
 
