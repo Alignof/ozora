@@ -193,16 +193,17 @@ function ssamoswap_width_valid(size : word_width) -> bool = {
     _      => false
   }
 }
-union clause ast = SSAMOSWAP : (bool, bool, regidx, regidx, word_width, regidx)
-mapping clause encdec = SSAMOSWAP(aq, rl, rs2, rs1, size, rd)
-      if extensionEnabled(Ext_Zicfiss) & ssamoswap_width_valid(size)
-  <-> 0b01001 @ bool_bits(aq) @ bool_bits(rl) @ rs2 @ rs1 @ 0b0 @ size_enc(size) @ rd @ 0b0101111
-      if extensionEnabled(Ext_Zicfiss) & ssamoswap_width_valid(size)
-mapping clause assembly = SSAMOSWAP(aq, rl, rs2, rs1, size, rd)
-      if extensionEnabled(Ext_Zicfiss) & ssamoswap_width_valid(size)
-  <-> "ssamoswap" ^ "." ^ size_mnemonic(size) ^ maybe_aq(aq) ^ maybe_rl(rl) ^ spc()
-                  ^ reg_name(rd) ^ sep() ^ reg_name(rs2) ^ sep() ^ "(" ^ reg_name(rs1) ^ ")"
-      if extensionEnabled(Ext_Zicfiss) & ssamoswap_width_valid(size)
+union clause ast = SSAMOSWAP_W : (bool, bool, regidx, regidx, regidx)
+mapping clause encdec = SSAMOSWAP_W(aq, rl, rs2, rs1, rd)
+      if extensionEnabled(Ext_Zicfiss)
+  <-> 0b01001 @ bool_bits(aq) @ bool_bits(rl) @ rs2 @ rs1 @ 0b010 @ rd @ 0b0101111
+      if extensionEnabled(Ext_Zicfiss)
+
+union clause ast = SSAMOSWAP_D : (bool, bool, regidx, regidx, regidx)
+mapping clause encdec = SSAMOSWAP_D(aq, rl, rs2, rs1, rd)
+      if extensionEnabled(Ext_Zicfiss)
+  <-> 0b01001 @ bool_bits(aq) @ bool_bits(rl) @ rs2 @ rs1 @ 0b011 @ rd @ 0b0101111
+      if extensionEnabled(Ext_Zicfiss)
 
 /* Architectural state for the Zicfiss extension. */
 register ssp : xlenbits
