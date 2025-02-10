@@ -207,3 +207,4 @@ mapping clause encdec = SSAMOSWAP_D(aq, rl, rs2, rs1, rd)
 
 /* Architectural state for the Zicfiss extension. */
 register ssp : xlenbits
+mapping clause csr_name_map = 0x011 <-> "ssp"
