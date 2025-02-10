@@ -176,18 +176,18 @@ pub fn create_hikami_module(
 
     indoc::writedoc!(
         file,
-        r#"
+        r"
             /// Emulate Zicfiss CSRs access.
             fn csr(&mut self, inst: &Instruction) {{
-        "#,
+        ",
     )?;
     generate_csr_handler(&mut file, csrs)?;
     indoc::writedoc!(
         file,
-        r#"
+        r"
             }}
 
-        "#,
+        ",
     )?;
 
     indoc::writedoc!(

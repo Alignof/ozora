@@ -81,7 +81,7 @@ pub fn get_csrs_definition(target_file_name: &str) -> Vec<Csr> {
                         csrs.push(Csr {
                             name: get_csr_ident(csr_ident),
                             number: get_csr_number(csr_num),
-                        })
+                        });
                     }
                 }
             }
