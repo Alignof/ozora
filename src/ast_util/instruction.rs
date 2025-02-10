@@ -367,9 +367,7 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
 
                     u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
                 }
-                "eq_bit" => true,   // assume that a bit comparing is true.
-                "eq_bits" => true,  // assume that a bits comparing is true.
-                "neq_bits" => true, // assume that a bits comparing is true.
+                "eq_bit" | "eq_bits" | "neq_bits" => true, // assume that a bits comparing is true.
                 unknown => unreachable!("unknown application: {}", unknown),
             }
         }
