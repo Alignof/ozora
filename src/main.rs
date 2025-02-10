@@ -15,6 +15,7 @@ use ast_util::{Ast, AST};
 
 const XLEN: u32 = 64;
 
+/// Ozora: Tools for automatic generation of hypervisor modules and decoder automation.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -30,10 +31,15 @@ struct Args {
     #[arg(long, default_value = "files.json")]
     input_json: PathBuf,
 
-    /// Target file
+    /// Target sail file
+    ///
+    /// The specification described in this file is the target of generation.
+    /// It must be the file specified by `input_json`.
     target: PathBuf,
 
     /// Output path
+    ///
+    /// The generated files are output to this path.
     output: PathBuf,
 }
 
