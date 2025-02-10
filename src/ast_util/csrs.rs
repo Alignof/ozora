@@ -3,6 +3,16 @@ use sailrs::sail_ast::{Expression, ExpressionAux, LiteralAux, PatternMatchAux};
 use super::{check_defined_location, unwrap_ident};
 use crate::AST;
 
+struct CsrNumber(u32);
+
+/// CSR data
+struct Csr {
+    /// CSR name
+    name: String,
+    /// CSR number
+    number: CsrNumber,
+}
+
 /// Get csr number.
 fn show_csr_number(csr_num: Expression) {
     let ExpressionAux::Application(ident, def_tuple) = *csr_num.inner else {
