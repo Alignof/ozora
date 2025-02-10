@@ -16,6 +16,17 @@ pub struct Csr {
     number: CsrNumber,
 }
 
+impl Csr {
+    /// Return CSR name
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+    /// Return CSR number
+    pub fn number(&self) -> u32 {
+        self.number.0
+    }
+}
+
 /// Get csr number.
 fn get_csr_number(csr_num: Expression) -> CsrNumber {
     let ExpressionAux::Application(ident, def_tuple) = *csr_num.inner else {
