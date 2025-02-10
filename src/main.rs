@@ -69,9 +69,8 @@ fn main() -> Result<()> {
     let target_file = args.target.as_os_str().to_str().unwrap();
     let insns = ast_util::instruction::get_encoding_rule(target_file);
     let csrs = ast_util::csrs::get_csrs_definition(target_file);
-    dbg!(csrs);
 
-    generate_module::create_hikami_module(&args.ext_name, &args.output, &insns).unwrap();
+    generate_module::create_hikami_module(&args.ext_name, &args.output, &insns, &csrs).unwrap();
 
     generate_decoder::instruction_definition::create_raki_insn_def(
         &args.ext_name,
