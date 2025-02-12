@@ -3,8 +3,32 @@ use sailrs::sail_ast::{Expression, ExpressionAux, LiteralAux, PatternMatchAux};
 use super::{check_defined_location, unwrap_ident};
 use crate::AST;
 
+/// CSR number
+#[derive(Debug)]
+struct CsrNumber(u32);
+
+/// CSR data
+#[derive(Debug)]
+pub struct Csr {
+    /// CSR name
+    name: String,
+    /// CSR number
+    number: CsrNumber,
+}
+
+impl Csr {
+    /// Return CSR name
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+    /// Return CSR number
+    pub fn number(&self) -> u32 {
+        self.number.0
+    }
+}
+
 /// Get csr number.
-fn show_csr_number(csr_num: Expression) {
+fn get_csr_number(csr_num: Expression) -> CsrNumber {
     let ExpressionAux::Application(ident, def_tuple) = *csr_num.inner else {
         panic!("not a ExpressionAux");
     };
@@ -26,11 +50,12 @@ fn show_csr_number(csr_num: Expression) {
             panic!("Vector element is not a literal")
         }
     });
-    print!("{csr_num:#05x} <-> ");
+
+    CsrNumber(csr_num)
 }
 
 /// Get csr name.
-fn show_csr_ident(csr_name: Expression) {
+fn get_csr_ident(csr_name: Expression) -> String {
     let ExpressionAux::Literal(literal) = *csr_name.inner else {
         panic!("not a Literal");
     };
@@ -38,11 +63,12 @@ fn show_csr_ident(csr_name: Expression) {
         panic!("not a String");
     };
 
-    println!("{name}");
+    name.to_string()
 }
 
 /// Get CSRs definitions.
-pub fn show_csrs_definition(target_file_name: &str) {
+pub fn get_csrs_definition(target_file_name: &str) -> Vec<Csr> {
+    let mut csrs = Vec::new();
     let csrs_node = AST.get().unwrap().get_csrs_forward_node().unwrap();
     if let PatternMatchAux::Expression(_pat, exp) = csrs_node.inner.pattern_match.inner {
         if let ExpressionAux::Match(_exp, pat_list) = *exp.inner {
@@ -52,11 +78,15 @@ pub fn show_csrs_definition(target_file_name: &str) {
                 // pat_rhs: "fflags"
                 if let PatternMatchAux::When(pat_id, csr_num, csr_ident) = pat.inner {
                     if check_defined_location(&pat_id.annotation, target_file_name) {
-                        show_csr_number(csr_num);
-                        show_csr_ident(csr_ident);
+                        csrs.push(Csr {
+                            name: get_csr_ident(csr_ident),
+                            number: get_csr_number(csr_num),
+                        });
                     }
                 }
             }
         }
     }
+
+    csrs
 }

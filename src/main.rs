@@ -1,4 +1,6 @@
 mod ast_util;
+mod generate_decoder;
+mod generate_module;
 mod jib_util;
 
 use std::path::PathBuf;
@@ -11,6 +13,9 @@ use sailrs::{init_logger, parse_sail_files};
 
 use ast_util::{Ast, AST};
 
+const XLEN: u32 = 64;
+
+/// Ozora: Tools for automatic generation of hypervisor modules and decoder automation.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -18,8 +23,24 @@ struct Args {
     #[arg(long)]
     loglv: Option<String>,
 
+    /// Extension name.
+    #[arg(long)]
+    ext_name: String,
+
     /// Json file path contains target sail files.
-    input: PathBuf,
+    #[arg(long, default_value = "files.json")]
+    input_json: PathBuf,
+
+    /// Target sail file
+    ///
+    /// The specification described in this file is the target of generation.
+    /// It must be the file specified by `input_json`.
+    target: PathBuf,
+
+    /// Output path
+    ///
+    /// The generated files are output to this path.
+    output: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -28,16 +49,44 @@ fn main() -> Result<()> {
     // parse command line arguments
     let args = Args::parse();
 
+    // Check that the output file name matches the extension name.
+    assert!(
+        args.output
+            .file_stem()
+            .unwrap()
+            .eq_ignore_ascii_case(args.ext_name.as_str()),
+        "Extension name does not matches the file name"
+    );
+
+    // Check that the first character of the extension name is capitalized
+    assert!(
+        args.ext_name.chars().next().is_some_and(char::is_uppercase),
+        "The First character of the extension name is not capitalized"
+    );
+
     // set up the logger, defaulting to no output if the CLI flag was not supplied
     init_logger(args.loglv.as_deref().unwrap_or("info"))?;
 
     intern::init(HashMap::default());
 
-    AST.set(Ast::new(parse_sail_files(args.input).unwrap()))
+    AST.set(Ast::new(parse_sail_files(args.input_json.clone()).unwrap()))
         .unwrap();
 
-    ast_util::instruction::show_encoding_rule("riscv_insts_zbb.sail");
-    ast_util::csrs::show_csrs_definition("riscv_csr_begin.sail");
+    let target_file = args.target.as_os_str().to_str().unwrap();
+    let insns = ast_util::instruction::get_encoding_rule(target_file);
+    let csrs = ast_util::csrs::get_csrs_definition(target_file);
+
+    generate_module::create_hikami_module(&args.ext_name, &args.output, &insns, &csrs).unwrap();
+
+    generate_decoder::instruction_definition::create_raki_insn_def(
+        &args.ext_name,
+        &args.output,
+        &insns,
+    )
+    .unwrap();
+
+    generate_decoder::parse_operand::create_raki_decoder(&args.ext_name, &args.output, &insns)
+        .unwrap();
 
     info!("done");
 

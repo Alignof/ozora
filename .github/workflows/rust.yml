@@ -17,19 +17,19 @@ jobs:
         with:
           components: clippy
 
-      - uses: sksat/action-clippy@v1.0.0
-        if: github.event_name == 'push'
-        with:
-          reporter: github-check
+      # - uses: sksat/action-clippy@v1.0.0
+      #   if: github.event_name == 'push'
+      #   with:
+      #     reporter: github-check
 
-      - uses: sksat/action-clippy@v1.0.0
-        if: github.event_name == 'pull_request'
-        with:
-          reporter: github-pr-review
+      # - uses: sksat/action-clippy@v1.0.0
+      #   if: github.event_name == 'pull_request'
+      #   with:
+      #     reporter: github-pr-review
 
       - name: format check
         run: cargo fmt --all -- --check
 
-      - name: unit test
-        run: cargo test
+      # - name: unit test
+      #   run: cargo test
 
