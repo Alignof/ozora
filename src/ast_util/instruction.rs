@@ -152,34 +152,38 @@ impl Instruction {
             .get_field_by_name("imm")
             .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
 
-        let insn_val = self.fields.iter().fold(0u32, |bits, field| match field {
-            Field::Opr(opr) => {
-                bits << opr.range.len()
-                    | match opr.name.as_str() {
-                        "rd" => rd.unwrap(),
-                        "rs1" => rs1.unwrap(),
-                        "rs2" => rs2.unwrap(),
-                        "imm" => imm.unwrap(),
-                        "shamt" => {
-                            let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
-                            imm = Some(new_rand);
-                            new_rand
+        let insn_val = self
+            .fields
+            .iter()
+            .rev()
+            .fold(0u32, |bits, field| match field {
+                Field::Opr(opr) => {
+                    bits << opr.range.len()
+                        | match opr.name.as_str() {
+                            "rd" => rd.unwrap(),
+                            "rs1" => rs1.unwrap(),
+                            "rs2" => rs2.unwrap(),
+                            "imm" => imm.unwrap(),
+                            "shamt" => {
+                                let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
+                                imm = Some(new_rand);
+                                new_rand
+                            }
+                            "rl" => {
+                                let new_rand = rng.gen_range(0..1);
+                                imm = Some(new_rand);
+                                new_rand
+                            }
+                            "aq" => {
+                                let new_rand = rng.gen_range(0..1);
+                                imm = imm.map(|x| x | new_rand << 1);
+                                new_rand << 1
+                            }
+                            _ => panic!("unsupported operand: {}", opr.name),
                         }
-                        "rl" => {
-                            let new_rand = rng.gen_range(0..1);
-                            imm = Some(new_rand);
-                            new_rand
-                        }
-                        "aq" => {
-                            let new_rand = rng.gen_range(0..1);
-                            imm = imm.map(|x| x | new_rand << 1);
-                            new_rand << 1
-                        }
-                        _ => panic!("unsupported operand: {}", opr.name),
-                    }
-            }
-            Field::Opc(opc) => bits << opc.range.len() | opc.value,
-        });
+                }
+                Field::Opc(opc) => bits << opc.range.len() | opc.value,
+            });
 
         (insn_val, rd, rs1, rs2, imm)
     }
