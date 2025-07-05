@@ -225,22 +225,10 @@ fn generate_unit_tests(
             #[test]
             #[allow(overflowing_literals)]
             fn {ext_name_lower}_32bit_decode_test() {{
+                use crate::OpcodeKind;
+                use crate::decode::inst_32::test_32_in_rv64;
                 use crate::instruction::{ext_name_lower}_extension::{ext_name}Opcode;
-                use crate::{{Decode, Isa, OpcodeKind}};
 
-                let test_32 = |inst_32: u32,
-                               expected_op: OpcodeKind,
-                               expected_rd: Option<usize>,
-                               expected_rs1: Option<usize>,
-                               expected_rs2: Option<usize>,
-                               expected_imm: Option<i32>| {{
-                    let op_32 = inst_32.parse_opcode(Isa::Rv64).unwrap();
-                    assert_eq!(op_32, expected_op);
-                    assert_eq!(inst_32.parse_rd(&op_32).unwrap(), expected_rd);
-                    assert_eq!(inst_32.parse_rs1(&op_32).unwrap(), expected_rs1);
-                    assert_eq!(inst_32.parse_rs2(&op_32).unwrap(), expected_rs2);
-                    assert_eq!(inst_32.parse_imm(&op_32, Isa::Rv64).unwrap(), expected_imm);
-                }};
         ",
         ext_name_lower = ext_name.to_lowercase(),
     )?;
@@ -250,7 +238,7 @@ fn generate_unit_tests(
         indoc::writedoc!(
             file,
             "
-                test_32(
+                test_32_in_rv64(
                     {insn_val:#032b},
                     OpcodeKind::{ext_name}({ext_name}Opcode::{}),
                     {rd:?},
