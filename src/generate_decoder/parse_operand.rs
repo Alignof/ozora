@@ -37,10 +37,14 @@ fn generically_generate_parsing_reg_func(
         indoc::writedoc!(
             file,
             "
-            \tlet {reg_type}_{end}_{start}: usize = inst.slice({end}, {start}) as usize;
+            \tlet {reg_type}_{end}_{start}: {type_name} = inst.slice({end}, {start}) as {type_name};
             ",
             start = reg_field_range.start,
-            end = reg_field_range.end,
+            end = reg_field_range.end - 1,
+            type_name = match reg_type {
+                "imm" => "i32",
+                _ => "usize",
+            }
         )?;
     }
     writeln!(file, "\tmatch opkind {{")?;
@@ -56,7 +60,7 @@ fn generically_generate_parsing_reg_func(
                 Some(reg_field) => format!(
                     "Some({reg_type}_{end}_{start}),",
                     start = reg_field.range.start,
-                    end = reg_field.range.end,
+                    end = reg_field.range.end - 1,
                 ),
                 None => "None,".to_string(),
             }
@@ -108,7 +112,7 @@ fn generate_each_field_pattern(
     writeln!(
         file,
         "match op_{end}_{start} {{",
-        end = opc_field_range.end,
+        end = opc_field_range.end - 1,
         start = opc_field_range.start
     )?;
 
@@ -194,7 +198,7 @@ fn generate_parsing_opecode_func(
             file,
             "let op_{end}_{start}: {typ} = {typ}::try_from(inst.slice({end}, {start})).unwrap(); ",
             typ = if opc_field.len() <= 8 { "u8" } else { "u16" },
-            end = opc_field.end,
+            end = opc_field.end - 1,
             start = opc_field.start
         )?;
     }

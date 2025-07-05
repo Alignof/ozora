@@ -276,7 +276,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
                 op_list.push(Field::Opc(Opecode {
                     value: bit_vec,
-                    range: offset..u8::try_from(bit_width).unwrap() - 1 + offset,
+                    range: offset..u8::try_from(bit_width).unwrap() + offset,
                 }));
 
                 offset += bit_width as u8;
@@ -301,7 +301,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
                 op_list.push(Field::Opr(Operand {
                     name: unwrap_ident(cast_ident).to_string(),
-                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
+                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() + offset,
                 }));
 
                 offset += u8::try_from(bit_width.0).unwrap();
