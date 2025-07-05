@@ -12,6 +12,7 @@ use crate::ast_util::instruction::Instruction;
 fn generically_generate_parsing_reg_func(
     file: &mut File,
     reg_type: &str,
+    reg_names: &[&str],
     ext_name: &str,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,7 @@ fn generically_generate_parsing_reg_func(
 
     let mut reg_field_set = HashSet::new();
     for insn in insns {
-        if let Some(field) = insn.get_field_by_name(reg_type) {
+        if let Some(field) = insn.get_field_by_any_name(reg_names) {
             reg_field_set.insert(field.range.clone());
         }
     }
@@ -56,7 +57,7 @@ fn generically_generate_parsing_reg_func(
                 .strip_prefix("RISCV_")
                 .unwrap_or(&insn.name)
                 .to_uppercase(),
-            match insn.get_field_by_name(reg_type) {
+            match insn.get_field_by_any_name(reg_names) {
                 Some(reg_field) => format!(
                     "Some({reg_type}_{end}_{start}),",
                     start = reg_field.range.start,
@@ -297,10 +298,10 @@ pub fn create_raki_decoder(
 
     generate_parsing_opecode_func(&mut file, ext_name, insns)?;
 
-    generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "imm", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rd", &["rd"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs1", &["rs1"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs2", &["rs2"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "imm", &["imm", "shamt"], ext_name, insns)?;
 
     indoc::writedoc!(file, "}}")?;
 

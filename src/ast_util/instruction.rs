@@ -106,6 +106,20 @@ impl Instruction {
         })
     }
 
+    /// Get a field by list of name
+    pub fn get_field_by_any_name(&self, field_names: &[&str]) -> Option<&Operand> {
+        self.fields.iter().find_map(|field| {
+            if let Field::Opr(operand) = field {
+                // `field_names`スライスに`operand.name`が含まれているかチェックします。
+                // `operand.name`がString型であると仮定し、`as_str()`で`&str`に変換しています。
+                if field_names.contains(&operand.name.as_str()) {
+                    return Some(operand);
+                }
+            }
+            None
+        })
+    }
+
     /// Get all opecode fields
     pub fn get_opc_fields(&self) -> Vec<&Opecode> {
         self.fields
