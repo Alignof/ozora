@@ -369,7 +369,7 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
                         panic!("not a number");
                     };
 
-                    u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
+                    u32::try_from(xlen_value.0.clone()).unwrap() == XLEN
                 }
                 "eq_bit" | "eq_bits" | "neq_bits" => true, // assume that a bits comparing is true.
                 unknown => unreachable!("unknown application: {}", unknown),
