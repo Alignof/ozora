@@ -90,7 +90,12 @@ fn group_by_opc_value(insns: &Vec<Instruction>, opc_range: &Range<u8>) -> Vec<Ve
             .push(insn.clone());
     }
 
-    insns_map.into_values().collect()
+    let mut insns_map_vec: Vec<_> = insns_map.into_iter().collect();
+    insns_map_vec.sort_by_key(|(key, _)| match key {
+        Some(opc) => (false, *opc),
+        None => (true, 0),
+    });
+    insns_map_vec.into_iter().map(|(_, value)| value).collect()
 }
 
 /// Generate each field pattern by calling recursively.
@@ -117,7 +122,6 @@ fn generate_each_field_pattern(
         start = opc_field_range.start
     )?;
 
-    grouped_insns.sort_by_key(std::vec::Vec::len);
     let mut is_wild_card_needed = true;
     for insns in grouped_insns {
         // leaf
