@@ -106,6 +106,20 @@ impl Instruction {
         })
     }
 
+    /// Get a field by list of name
+    pub fn get_field_by_any_name(&self, field_names: &[&str]) -> Option<&Operand> {
+        self.fields.iter().find_map(|field| {
+            if let Field::Opr(operand) = field {
+                // `field_names`スライスに`operand.name`が含まれているかチェックします。
+                // `operand.name`がString型であると仮定し、`as_str()`で`&str`に変換しています。
+                if field_names.contains(&operand.name.as_str()) {
+                    return Some(operand);
+                }
+            }
+            None
+        })
+    }
+
     /// Get all opecode fields
     pub fn get_opc_fields(&self) -> Vec<&Opecode> {
         self.fields
@@ -152,34 +166,38 @@ impl Instruction {
             .get_field_by_name("imm")
             .map(|x| rng.gen_range(0..(1 << x.range.len())) as u32);
 
-        let insn_val = self.fields.iter().fold(0u32, |bits, field| match field {
-            Field::Opr(opr) => {
-                bits << opr.range.len()
-                    | match opr.name.as_str() {
-                        "rd" => rd.unwrap(),
-                        "rs1" => rs1.unwrap(),
-                        "rs2" => rs2.unwrap(),
-                        "imm" => imm.unwrap(),
-                        "shamt" => {
-                            let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
-                            imm = Some(new_rand);
-                            new_rand
+        let insn_val = self
+            .fields
+            .iter()
+            .rev()
+            .fold(0u32, |bits, field| match field {
+                Field::Opr(opr) => {
+                    bits << opr.range.len()
+                        | match opr.name.as_str() {
+                            "rd" => rd.unwrap(),
+                            "rs1" => rs1.unwrap(),
+                            "rs2" => rs2.unwrap(),
+                            "imm" => imm.unwrap(),
+                            "shamt" => {
+                                let new_rand = rng.gen_range(0..(1 << opr.range.len())) as u32;
+                                imm = Some(new_rand);
+                                new_rand
+                            }
+                            "rl" => {
+                                let new_rand = rng.gen_range(0..1);
+                                imm = Some(new_rand);
+                                new_rand
+                            }
+                            "aq" => {
+                                let new_rand = rng.gen_range(0..1);
+                                imm = imm.map(|x| x | new_rand << 1);
+                                new_rand << 1
+                            }
+                            _ => panic!("unsupported operand: {}", opr.name),
                         }
-                        "rl" => {
-                            let new_rand = rng.gen_range(0..1);
-                            imm = Some(new_rand);
-                            new_rand
-                        }
-                        "aq" => {
-                            let new_rand = rng.gen_range(0..1);
-                            imm = imm.map(|x| x | new_rand << 1);
-                            new_rand << 1
-                        }
-                        _ => panic!("unsupported operand: {}", opr.name),
-                    }
-            }
-            Field::Opc(opc) => bits << opc.range.len() | opc.value,
-        });
+                }
+                Field::Opc(opc) => bits << opc.range.len() | opc.value,
+            });
 
         (insn_val, rd, rs1, rs2, imm)
     }
@@ -272,7 +290,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
                 op_list.push(Field::Opc(Opecode {
                     value: bit_vec,
-                    range: offset..u8::try_from(bit_width).unwrap() - 1 + offset,
+                    range: offset..u8::try_from(bit_width).unwrap() + offset,
                 }));
 
                 offset += bit_width as u8;
@@ -297,7 +315,7 @@ pub fn get_encoding_rule_rhs(pat_rhs: Expression) -> Vec<Field> {
 
                 op_list.push(Field::Opr(Operand {
                     name: unwrap_ident(cast_ident).to_string(),
-                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() - 1 + offset,
+                    range: offset..u8::try_from(bit_width.0.clone()).unwrap() + offset,
                 }));
 
                 offset += u8::try_from(bit_width.0).unwrap();
@@ -365,7 +383,7 @@ fn is_mapping_enabled(exp0: &Expression) -> bool {
                         panic!("not a number");
                     };
 
-                    u32::try_from(xlen_value.0.bits()).unwrap() == XLEN
+                    u32::try_from(xlen_value.0.clone()).unwrap() == XLEN
                 }
                 "eq_bit" | "eq_bits" | "neq_bits" => true, // assume that a bits comparing is true.
                 unknown => unreachable!("unknown application: {}", unknown),
