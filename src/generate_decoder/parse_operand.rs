@@ -12,6 +12,7 @@ use crate::ast_util::instruction::Instruction;
 fn generically_generate_parsing_reg_func(
     file: &mut File,
     reg_type: &str,
+    reg_names: &[&str],
     ext_name: &str,
     insns: &Vec<Instruction>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,7 @@ fn generically_generate_parsing_reg_func(
 
     let mut reg_field_set = HashSet::new();
     for insn in insns {
-        if let Some(field) = insn.get_field_by_name(reg_type) {
+        if let Some(field) = insn.get_field_by_any_name(reg_names) {
             reg_field_set.insert(field.range.clone());
         }
     }
@@ -37,10 +38,14 @@ fn generically_generate_parsing_reg_func(
         indoc::writedoc!(
             file,
             "
-            \tlet {reg_type}_{end}_{start}: usize = inst.slice({end}, {start}) as usize;
+            \tlet {reg_type}_{end}_{start}: {type_name} = inst.slice({end}, {start}) as {type_name};
             ",
             start = reg_field_range.start,
-            end = reg_field_range.end,
+            end = reg_field_range.end - 1,
+            type_name = match reg_type {
+                "imm" => "i32",
+                _ => "usize",
+            }
         )?;
     }
     writeln!(file, "\tmatch opkind {{")?;
@@ -52,11 +57,11 @@ fn generically_generate_parsing_reg_func(
                 .strip_prefix("RISCV_")
                 .unwrap_or(&insn.name)
                 .to_uppercase(),
-            match insn.get_field_by_name(reg_type) {
+            match insn.get_field_by_any_name(reg_names) {
                 Some(reg_field) => format!(
                     "Some({reg_type}_{end}_{start}),",
                     start = reg_field.range.start,
-                    end = reg_field.range.end,
+                    end = reg_field.range.end - 1,
                 ),
                 None => "None,".to_string(),
             }
@@ -85,7 +90,12 @@ fn group_by_opc_value(insns: &Vec<Instruction>, opc_range: &Range<u8>) -> Vec<Ve
             .push(insn.clone());
     }
 
-    insns_map.into_values().collect()
+    let mut insns_map_vec: Vec<_> = insns_map.into_iter().collect();
+    insns_map_vec.sort_by_key(|(key, _)| match key {
+        Some(opc) => (false, *opc),
+        None => (true, 0),
+    });
+    insns_map_vec.into_iter().map(|(_, value)| value).collect()
 }
 
 /// Generate each field pattern by calling recursively.
@@ -108,11 +118,10 @@ fn generate_each_field_pattern(
     writeln!(
         file,
         "match op_{end}_{start} {{",
-        end = opc_field_range.end,
+        end = opc_field_range.end - 1,
         start = opc_field_range.start
     )?;
 
-    grouped_insns.sort_by_key(std::vec::Vec::len);
     let mut is_wild_card_needed = true;
     for insns in grouped_insns {
         // leaf
@@ -194,7 +203,7 @@ fn generate_parsing_opecode_func(
             file,
             "let op_{end}_{start}: {typ} = {typ}::try_from(inst.slice({end}, {start})).unwrap(); ",
             typ = if opc_field.len() <= 8 { "u8" } else { "u16" },
-            end = opc_field.end,
+            end = opc_field.end - 1,
             start = opc_field.start
         )?;
     }
@@ -225,22 +234,10 @@ fn generate_unit_tests(
             #[test]
             #[allow(overflowing_literals)]
             fn {ext_name_lower}_32bit_decode_test() {{
+                use crate::OpcodeKind;
+                use crate::decode::inst_32::test_32_in_rv64;
                 use crate::instruction::{ext_name_lower}_extension::{ext_name}Opcode;
-                use crate::{{Decode, Isa, OpcodeKind}};
 
-                let test_32 = |inst_32: u32,
-                               expected_op: OpcodeKind,
-                               expected_rd: Option<usize>,
-                               expected_rs1: Option<usize>,
-                               expected_rs2: Option<usize>,
-                               expected_imm: Option<i32>| {{
-                    let op_32 = inst_32.parse_opcode(Isa::Rv64).unwrap();
-                    assert_eq!(op_32, expected_op);
-                    assert_eq!(inst_32.parse_rd(&op_32).unwrap(), expected_rd);
-                    assert_eq!(inst_32.parse_rs1(&op_32).unwrap(), expected_rs1);
-                    assert_eq!(inst_32.parse_rs2(&op_32).unwrap(), expected_rs2);
-                    assert_eq!(inst_32.parse_imm(&op_32, Isa::Rv64).unwrap(), expected_imm);
-                }};
         ",
         ext_name_lower = ext_name.to_lowercase(),
     )?;
@@ -250,7 +247,7 @@ fn generate_unit_tests(
         indoc::writedoc!(
             file,
             "
-                test_32(
+                test_32_in_rv64(
                     {insn_val:#032b},
                     OpcodeKind::{ext_name}({ext_name}Opcode::{}),
                     {rd:?},
@@ -305,10 +302,10 @@ pub fn create_raki_decoder(
 
     generate_parsing_opecode_func(&mut file, ext_name, insns)?;
 
-    generically_generate_parsing_reg_func(&mut file, "rd", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "rs1", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "rs2", ext_name, insns)?;
-    generically_generate_parsing_reg_func(&mut file, "imm", ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rd", &["rd"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs1", &["rs1"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "rs2", &["rs2"], ext_name, insns)?;
+    generically_generate_parsing_reg_func(&mut file, "imm", &["imm", "shamt"], ext_name, insns)?;
 
     indoc::writedoc!(file, "}}")?;
 
