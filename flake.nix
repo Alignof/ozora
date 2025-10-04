@@ -23,40 +23,64 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs { inherit system; };
-        # Import nixpkgs with the rust-overlay applied.
-        rust_toolchain = fenix.packages.${system}.fromToolchainFile {
-          file = ./zbs/rust-toolchain.toml;
+        # Import nixpkgs for the given system.
+        pkgs = import nixpkgs {
+          inherit system;
+        };
+
+        # Select the OCaml 4.14 package set to match the project's requirements.
+        # This ensures compatibility with sail version 0.18.
+        ocamlPkgs = pkgs.ocaml-ng.ocamlPackages_4_14;
+
+        # Specify the Rust toolchain using fenix and a toolchain file.
+        rustToolchain = fenix.packages.${system}.fromToolchainFile {
+          file = ./rust-toolchain.toml;
           sha256 = "sha256-SJwZ8g0zF2WrKDVmHrVG3pD2RGoQeo24MEXnNx5FyuI=";
         };
 
-        # List of native dependencies required for building the project.
-        # Based on the requirements and opam list provided.
-        nativeBuildInputs = with pkgs; [
-          # For building Rust crates that link against C libraries.
-          pkg-config
+        # Override the sail package to fetch and build version 0.18 from GitHub.
+        # This is built using the specified OCaml 4.14 compiler.
+        sail-0_18 = ocamlPkgs.sail.overrideAttrs (previousAttrs: {
+          version = "0.18";
 
-          # For crates that depend on OpenSSL.
-          openssl
+          src = pkgs.fetchFromGitHub {
+            owner = "rems-project";
+            repo = "sail";
+            rev = "0.18";
+            hash = "sha256-QvVK7KeAvJ/RfJXXYo6xEGEk5iOmVsZbvzW28MHRFic=";
+          };
+
+          # Ensure menhirLib is included, as seen in the sail-riscv example.
+          propagatedBuildInputs = previousAttrs.propagatedBuildInputs ++ [ ocamlPkgs.menhirLib ];
+        });
+
+        # List of native dependencies required for building the project.
+        nativeBuildInputs = [
+          pkgs.pkg-config
+          pkgs.openssl
         ];
 
         # List of dependencies for the project itself.
-        buildInputs = with pkgs; [
-          # The primary requirement. This package should pull in most of the
-          # necessary OCaml dependencies like lem, ott, etc.
-          sail
+        buildInputs = [
+          # Use our custom-built sail package.
+          sail-0_18
 
-          # System libraries identified from `conf-*` packages in opam.
-          gmp
-          zlib
-          m4
-          findutils
+          # Add the OCaml binding for the GMP library, which dune is looking for.
+          ocamlPkgs.zarith
+
+          # System libraries and tools required by sail.
+          pkgs.gmp
+          pkgs.zlib
+          pkgs.m4
+          pkgs.findutils
+          pkgs.z3 # z3 is often a runtime dependency for sail.
         ];
       in
       {
+        # The default package built by `nix build`.
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "ozora";
-          version = "0.1.0";
+          version = "0.1.0"; # Set a placeholder version.
 
           # The source code is the current directory.
           src = ./.;
@@ -81,12 +105,16 @@
             ++ buildInputs
             ++ [
               # The Rust toolchain (cargo, rustc, etc.).
-              rust_toolchain
+              rustToolchain
 
               # Include OCaml and opam for manual package management if needed.
-              # The `sail` package already provides a specific OCaml version.
-              ocaml
-              opam
+              # We explicitly use the 4.14 versions.
+              ocamlPkgs.ocaml
+              pkgs.opam
+
+              # Add OCaml development tools to the shell PATH.
+              ocamlPkgs.findlib # Provides ocamlfind
+              ocamlPkgs.dune_3 # The OCaml build system
             ];
         };
       }
