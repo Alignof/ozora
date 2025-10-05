@@ -110,8 +110,6 @@ impl Instruction {
     pub fn get_field_by_any_name(&self, field_names: &[&str]) -> Option<&Operand> {
         self.fields.iter().find_map(|field| {
             if let Field::Opr(operand) = field {
-                // `field_names`スライスに`operand.name`が含まれているかチェックします。
-                // `operand.name`がString型であると仮定し、`as_str()`で`&str`に変換しています。
                 if field_names.contains(&operand.name.as_str()) {
                     return Some(operand);
                 }
@@ -204,7 +202,6 @@ impl Instruction {
 }
 
 /// Get ast node that is contained in target file.
-#[allow(dead_code)]
 pub fn get_insns_in_target_file(target_file_name: &str) -> Vec<InstType> {
     let ast_node = AST.get().unwrap().get_ast_node().unwrap();
     let mut type_vec = Vec::new();

@@ -133,8 +133,12 @@ pub fn create_hikami_module(
         file,
         "
 
-        use super::{{pseudo_vs_exception, EmulateExtension, EmulatedCsr}};
-        use crate::HYPERVISOR_DATA;
+        #![no_std]
+        // TODO: FIX AND REMOVE IT!!!
+        #![allow(static_mut_refs)]
+
+        use hikami_core::emulate_extension::EmulateExtension;
+        use hikami_core::HYPERVISOR_DATA;
 
         use core::cell::OnceCell;
         use spin::Mutex;
@@ -193,12 +197,46 @@ pub fn create_hikami_module(
     indoc::writedoc!(
         file,
         r#"
+        
             /// Emulate CSR field that already exists.
-            fn csr_field(&mut self, inst: &Instruction, write_to_csr_value: u64, read_csr_value: &mut u64) {{
+            fn csr_field(&mut self, _inst: &Instruction) {{
                 todo!("Implementing {ext_name} CSR field emulation");
             }}
-        }}
         "#,
+    )?;
+
+    indoc::writedoc!(
+        file,
+        r#"
+        
+            /// Return whether given csr value is defined in the extension.
+            ///
+            /// This function returns `false` always because there is no CSR to emulate.
+            fn is_csr_defined(&self, _: u16) -> bool {{
+                {}
+            }}
+        "#,
+        !csrs.is_empty()
+    )?;
+
+    indoc::writedoc!(
+        file,
+        r#"
+        
+            /// Return whether given csr value has newly defined field.
+            ///
+            /// This function returns `false` always because there is no CSR to emulate fields.
+            fn is_csr_field_defined(&self, _: u16) -> bool {{
+                todo!("Implementing {ext_name} CSR field definition");
+            }}
+        "#,
+    )?;
+
+    indoc::writedoc!(
+        file,
+        r"
+            }}
+        ",
     )?;
 
     Ok(())
