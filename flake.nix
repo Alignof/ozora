@@ -32,6 +32,7 @@
         };
 
         sail-0_18 = ocamlPkgs.sail.overrideAttrs (previousAttrs: {
+          pname = "sail";
           version = "0.18";
           src = pkgs.fetchFromGitHub {
             owner = "rems-project";
@@ -40,6 +41,12 @@
             hash = "sha256-QvVK7KeAvJ/RfJXXYo6xEGEk5iOmVsZbvzW28MHRFic=";
           };
           propagatedBuildInputs = previousAttrs.propagatedBuildInputs ++ [ ocamlPkgs.menhirLib ];
+          postPatch = ''
+            sed -i '/$option -lem_extern_type result/d' lib/result.sail
+            sed -i '/$option -coq_extern_type result/d' lib/result.sail
+            sed -i '/$option -lem_extern_type/d' lib/concurrency_interface/read_write.sail
+            sed -i '/$option -coq_extern_type/d' lib/concurrency_interface/read_write.sail
+          '';
         });
 
         ocaml-gmp = ocamlPkgs.buildDunePackage {
