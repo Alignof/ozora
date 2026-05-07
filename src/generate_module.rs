@@ -207,7 +207,7 @@ pub fn create_hikami_module(
 
     indoc::writedoc!(
         file,
-        r#"
+        r"
         
             /// Return whether given csr value is defined in the extension.
             ///
@@ -215,7 +215,7 @@ pub fn create_hikami_module(
             fn is_csr_defined(&self, _: u16) -> bool {{
                 {}
             }}
-        "#,
+        ",
         !csrs.is_empty()
     )?;
 

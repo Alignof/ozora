@@ -107,7 +107,7 @@ fn generate_each_field_pattern(
     opc_index: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let opc_field_range = &opc_field_list[opc_index];
-    let mut grouped_insns = group_by_opc_value(insns, opc_field_range);
+    let grouped_insns = group_by_opc_value(insns, opc_field_range);
 
     // skip this level if it is non leaf
     if grouped_insns.len() == 1 && grouped_insns[0].len() != 1 {

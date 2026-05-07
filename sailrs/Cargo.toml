@@ -25,7 +25,11 @@ strum = { version = "0.26.3", features = ["derive"] }
 regex = "1.11.1"
 color-eyre = { version = "0.6.3", default-features = false }
 clap = { version = "4.5.20", features = ["derive"] }
-rkyv = { version = "0.7.45", default-features = false, features = ["std", "alloc", "size_64"] }
+rkyv = { version = "0.7.45", default-features = false, features = [
+  "std",
+  "alloc",
+  "size_64",
+] }
 rayon = "1.10.0"
 lasso = { version = "0.7.3", features = ["serde", "deepsize"] }
 twox-hash = "1.6.3"
@@ -44,3 +48,11 @@ color-eyre = { version = "0.6.3", default-features = false }
 proptest = "1.5.0"
 serde_json = "1.0.132"
 pretty_assertions = "1.4.1"
+
+[lints.rust]
+mismatched_lifetime_syntaxes = "allow"
+
+[lints.clippy]
+# Ignore all linter rules in external OSS project.
+# Local modifications are avoided to maintain compatibility with upstream.
+all = "allow"
